@@ -5,62 +5,81 @@
 //  Created by Donald Clark on 9/10/25.
 //
 
-import SwiftUI
 import SwiftData
+import SwiftUI
+
+private let demoDataLoadedKey = "demoDataLoaded"
+
+enum NavigationItem: String, CaseIterable, Identifiable {
+  case dashboard = "Dashboard"
+  case setup = "Regional Setup"
+  case foodBanks = "Food Banks"
+  case stores = "Grocery Stores"
+  case aiProcessing = "AI Processing"
+  case restaurants = "Restaurants"
+  case routes = "Routes"
+  
+  var id: String { rawValue }
+  
+  var icon: String {
+    switch self {
+    case .dashboard: return "chart.bar.fill"
+    case .setup: return "building.2.fill"
+    case .foodBanks: return "house.fill"
+    case .stores: return "cart.fill"
+    case .aiProcessing: return "envelope.fill"
+    case .restaurants: return "fork.knife.circle.fill"
+    case .routes: return "map.fill"
+    }
+  }
+}
 
 struct ContentView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Query private var items: [Item]
+  @Environment(\.modelContext) private var modelContext
+  @State private var selectedItem: NavigationItem = .dashboard
 
-    var body: some View {
-        NavigationSplitView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
-                    } label: {
-                        Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
-                    }
-                }
-                .onDelete(perform: deleteItems)
-            }
-#if os(macOS)
-            .navigationSplitViewColumnWidth(min: 180, ideal: 200)
-#endif
-            .toolbar {
-#if os(iOS)
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-#endif
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
-                    }
-                }
-            }
-        } detail: {
-            Text("Select an item")
+  var body: some View {
+    NavigationSplitView {
+      List(NavigationItem.allCases, id: \.self) { item in
+        Button(action: {
+          selectedItem = item
+        }) {
+          Label(item.rawValue, systemImage: item.icon)
+            .foregroundColor(selectedItem == item ? .accentColor : .primary)
         }
+        .buttonStyle(PlainButtonStyle())
+      }
+      .navigationTitle("Food Recovery")
+      .listStyle(SidebarListStyle())
+    } detail: {
+      switch selectedItem {
+      case .dashboard:
+        RegionalDashboardView()
+      case .setup:
+        RegionalSetupView()
+      case .foodBanks:
+        FoodBankOnboardingView()
+      case .stores:
+        GroceryStoreRegistrationView()
+      case .aiProcessing:
+        EmailProcessingView()
+      case .restaurants:
+        RestaurantOnboardingView()
+      case .routes:
+        RouteListView()
+      }
     }
-
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(timestamp: Date())
-            modelContext.insert(newItem)
-        }
+    .accentColor(.green)
+    .onAppear {
+      if !UserDefaults.standard.bool(forKey: demoDataLoadedKey) {
+        DemoDataService.createDemoData(modelContext: modelContext)
+        UserDefaults.standard.set(true, forKey: demoDataLoadedKey)
+      }
     }
-
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            for index in offsets {
-                modelContext.delete(items[index])
-            }
-        }
-    }
+  }
 }
 
 #Preview {
-    ContentView()
-        .modelContainer(for: Item.self, inMemory: true)
+  ContentView()
+    .modelContainer(for: RegionalOperation.self, inMemory: true)
 }

@@ -265,16 +265,18 @@ private struct OnboardingStep: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Text(number)
-                .font(.headline)
-                .foregroundColor(.white)
-                .frame(width: 28, height: 28)
-                .background(Color.green)
-                .clipShape(Circle())
+            ZStack {
+                Circle()
+                    .fill(Color.green)
+                    .frame(width: 28, height: 28)
+                Text(number)
+                    .font(.headline)
+                    .foregroundColor(.white)
+            }
 
             Text(text)
                 .font(.subheadline)
-                .foregroundColor(.primary)
+                .foregroundColor(Color(red: 0.1, green: 0.1, blue: 0.15))
         }
     }
 }

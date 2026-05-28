@@ -26,8 +26,8 @@ struct AppTheme {
         
         // Text colors - explicit colors for better visibility
         static let textPrimary = Color.black
-        static let textSecondary = Color.gray
-        static let textTertiary = Color.gray.opacity(0.6)
+        static let textSecondary = Color(red: 0.25, green: 0.25, blue: 0.30)
+        static let textTertiary = Color(red: 0.40, green: 0.40, blue: 0.45)
         
         // Status colors
         static let proposed = Color.orange

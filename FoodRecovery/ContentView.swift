@@ -85,7 +85,7 @@ struct ContentView: View {
         showingOnboarding = true
       }
     }
-    .fullScreenCover(isPresented: $showingOnboarding) {
+    .sheet(isPresented: $showingOnboarding) {
       OnboardingView(isPresented: $showingOnboarding)
     }
   }

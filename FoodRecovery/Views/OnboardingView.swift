@@ -47,7 +47,7 @@ private struct OnboardingWelcomePage: View {
 
                 Text("Turn surplus food into community impact.\nCoordinate pickups, track deliveries, and reduce waste — all in one place.")
                     .font(.body)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Color(red: 0.25, green: 0.25, blue: 0.30))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
             }
@@ -56,7 +56,7 @@ private struct OnboardingWelcomePage: View {
 
             Text("Swipe to learn more →")
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundColor(Color(red: 0.25, green: 0.25, blue: 0.30))
                 .padding(.bottom, 48)
         }
     }
@@ -99,7 +99,7 @@ private struct OnboardingHowItWorksPage: View {
 
             Text("Swipe to get started →")
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundColor(Color(red: 0.25, green: 0.25, blue: 0.30))
                 .padding(.bottom, 48)
         }
     }
@@ -126,7 +126,7 @@ private struct OnboardingGetStartedPage: View {
 
                 Text("Start by setting up your regional operation,\nthen add food banks and grocery stores.")
                     .font(.body)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Color(red: 0.25, green: 0.25, blue: 0.30))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
             }
@@ -179,7 +179,7 @@ private struct FeatureRow: View {
                     .font(.headline)
                 Text(description)
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Color(red: 0.25, green: 0.25, blue: 0.30))
             }
         }
     }

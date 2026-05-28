@@ -308,7 +308,7 @@ struct EmailProcessingView: View {
       // Schedule expiry alert if the donation has an expiration date
       if let expiryDate = result.expirationDate {
         Task {
-          await NotificationService.shared.scheduleDonationExpiryAlert(
+          NotificationService.shared.scheduleDonationExpiryAlert(
             donationId: donation.id,
             description: result.foodDescription,
             storeName: store.name,

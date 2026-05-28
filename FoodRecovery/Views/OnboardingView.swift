@@ -12,26 +12,63 @@ struct OnboardingView: View {
     @State private var currentPage = 0
 
     var body: some View {
+        #if os(iOS)
         TabView(selection: $currentPage) {
-            OnboardingWelcomePage()
+            OnboardingWelcomePage(onNext: { currentPage = 1 })
                 .tag(0)
-            OnboardingHowItWorksPage()
+            OnboardingHowItWorksPage(onNext: { currentPage = 2 })
                 .tag(1)
             OnboardingGetStartedPage(isPresented: $isPresented)
                 .tag(2)
         }
-        #if os(iOS)
         .tabViewStyle(.page)
         .indexViewStyle(.page(backgroundDisplayMode: .always))
-        #endif
         .background(Color(red: 0.95, green: 0.95, blue: 0.97).ignoresSafeArea())
         .interactiveDismissDisabled()
+        #else
+        VStack(spacing: 0) {
+            Group {
+                switch currentPage {
+                case 0:
+                    OnboardingWelcomePage(onNext: { currentPage = 1 })
+                case 1:
+                    OnboardingHowItWorksPage(onNext: { currentPage = 2 })
+                default:
+                    OnboardingGetStartedPage(isPresented: $isPresented)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .animation(.easeInOut, value: currentPage)
+
+            if currentPage < 2 {
+                HStack {
+                    if currentPage > 0 {
+                        Button("← Back") { currentPage -= 1 }
+                            .buttonStyle(.plain)
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                    PageIndicator(total: 3, current: currentPage)
+                    Spacer()
+                    Button("Next →") { currentPage += 1 }
+                        .buttonStyle(.plain)
+                        .foregroundColor(.green)
+                        .fontWeight(.semibold)
+                }
+                .padding(.horizontal, 32)
+                .padding(.vertical, 16)
+            }
+        }
+        .background(Color(red: 0.95, green: 0.95, blue: 0.97).ignoresSafeArea())
+        #endif
     }
 }
 
 // MARK: - Page 1: Welcome
 
 private struct OnboardingWelcomePage: View {
+    let onNext: () -> Void
+
     var body: some View {
         VStack(spacing: 32) {
             Spacer()
@@ -54,10 +91,19 @@ private struct OnboardingWelcomePage: View {
 
             Spacer()
 
+            #if os(iOS)
             Text("Swipe to learn more →")
                 .font(.caption)
                 .foregroundColor(Color(red: 0.25, green: 0.25, blue: 0.30))
                 .padding(.bottom, 48)
+            #else
+            Button("Learn More →") { onNext() }
+                .buttonStyle(.plain)
+                .font(.caption)
+                .foregroundColor(.green)
+                .fontWeight(.semibold)
+                .padding(.bottom, 48)
+            #endif
         }
     }
 }
@@ -65,6 +111,8 @@ private struct OnboardingWelcomePage: View {
 // MARK: - Page 2: How It Works
 
 private struct OnboardingHowItWorksPage: View {
+    let onNext: () -> Void
+
     var body: some View {
         VStack(spacing: 32) {
             Spacer()
@@ -97,10 +145,19 @@ private struct OnboardingHowItWorksPage: View {
 
             Spacer()
 
+            #if os(iOS)
             Text("Swipe to get started →")
                 .font(.caption)
                 .foregroundColor(Color(red: 0.25, green: 0.25, blue: 0.30))
                 .padding(.bottom, 48)
+            #else
+            Button("Get Started →") { onNext() }
+                .buttonStyle(.plain)
+                .font(.caption)
+                .foregroundColor(.green)
+                .fontWeight(.semibold)
+                .padding(.bottom, 48)
+            #endif
         }
     }
 }
@@ -123,6 +180,7 @@ private struct OnboardingGetStartedPage: View {
                 Text("You're Ready!")
                     .font(.largeTitle)
                     .fontWeight(.bold)
+                    .foregroundColor(.primary)
 
                 Text("Start by setting up your regional operation,\nthen add food banks and grocery stores.")
                     .font(.body)
@@ -147,12 +205,13 @@ private struct OnboardingGetStartedPage: View {
             } label: {
                 Text("Get Started")
                     .font(.headline)
+                    .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding()
                     .background(Color.green)
-                    .foregroundColor(.white)
                     .cornerRadius(14)
             }
+            .buttonStyle(.plain)
             .padding(.horizontal, 32)
             .padding(.bottom, 48)
         }
@@ -160,6 +219,21 @@ private struct OnboardingGetStartedPage: View {
 }
 
 // MARK: - Helper Views
+
+private struct PageIndicator: View {
+    let total: Int
+    let current: Int
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(0..<total, id: \.self) { index in
+                Circle()
+                    .fill(index == current ? Color.green : Color.gray.opacity(0.4))
+                    .frame(width: 7, height: 7)
+            }
+        }
+    }
+}
 
 private struct FeatureRow: View {
     let icon: String
@@ -200,6 +274,7 @@ private struct OnboardingStep: View {
 
             Text(text)
                 .font(.subheadline)
+                .foregroundColor(.primary)
         }
     }
 }

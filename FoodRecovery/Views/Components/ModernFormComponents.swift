@@ -41,19 +41,20 @@ struct ModernTextField: View {
             
             TextField(placeholder, text: $text, axis: axis)
                 .focused($isFocused)
+                .textFieldStyle(.plain)
 #if canImport(UIKit)
                 .keyboardType(keyboardType)
 #endif
                 .lineLimit(lineLimit ?? 1...1)
-                .foregroundColor(AppTheme.Colors.textPrimary)
+                .foregroundColor(Color(white: 0.1))
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(white: 0.93))
+                        .fill(Color(white: 0.97))
                         .overlay(
                             RoundedRectangle(cornerRadius: 12)
-                                .stroke(isFocused ? Color.blue : Color.gray.opacity(0.25), lineWidth: isFocused ? 2 : 1)
+                                .stroke(isFocused ? Color.blue : Color.gray.opacity(0.3), lineWidth: isFocused ? 2 : 1)
                         )
                 )
                 .animation(.easeInOut(duration: 0.2), value: isFocused)

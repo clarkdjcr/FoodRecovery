@@ -14,7 +14,7 @@ enum NavigationItem: String, CaseIterable, Identifiable {
   case dashboard = "Dashboard"
   case setup = "Regional Setup"
   case foodBanks = "Food Banks"
-  case stores = "Grocery Stores"
+  case stores = "Food Providers"
   case aiProcessing = "AI Processing"
   case restaurants = "Restaurants"
   case routes = "Routes"
@@ -64,7 +64,7 @@ struct ContentView: View {
       case .foodBanks:
         FoodBankOnboardingView()
       case .stores:
-        GroceryStoreRegistrationView()
+        FoodProviderRegistrationView()
       case .aiProcessing:
         EmailProcessingView()
       case .restaurants:

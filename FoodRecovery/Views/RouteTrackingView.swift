@@ -35,7 +35,7 @@ struct RouteTrackingView: View {
                     }
 
                     ForEach(pickupRoute.pickups, id: \.id) { pickup in
-                        if let store = pickup.groceryStore,
+                        if let store = pickup.foodProvider,
                            let lat = store.latitude,
                            let lon = store.longitude {
                             Annotation("Pickup: \(store.name)",
@@ -134,7 +134,7 @@ struct RouteTrackingView: View {
 
         // Schedule pickup reminders now that the route is live
         for pickup in pickupRoute.pickups {
-            if let store = pickup.groceryStore {
+            if let store = pickup.foodProvider {
                 NotificationService.shared.schedulePickupReminder(
                     pickupId: pickup.id,
                     storeName: store.name,
@@ -153,7 +153,7 @@ struct RouteTrackingView: View {
             coordinates.append(currentLocation.coordinate)
         }
         for pickup in pickupRoute.pickups {
-            if let store = pickup.groceryStore, let lat = store.latitude, let lon = store.longitude {
+            if let store = pickup.foodProvider, let lat = store.latitude, let lon = store.longitude {
                 coordinates.append(CLLocationCoordinate2D(latitude: lat, longitude: lon))
             }
         }
@@ -405,7 +405,7 @@ struct DriverControlPanel: View {
 
     private func stopName(_ stop: Any) -> String {
         if let pickup = stop as? Pickup {
-            return pickup.groceryStore?.name ?? pickup.restaurant?.name ?? "Unknown Pickup"
+            return pickup.foodProvider?.name ?? pickup.restaurant?.name ?? "Unknown Pickup"
         } else if let delivery = stop as? Delivery {
             return delivery.foodBank?.name ?? "Unknown Delivery"
         }
@@ -414,7 +414,7 @@ struct DriverControlPanel: View {
 
     private func stopAddress(_ stop: Any) -> String {
         if let pickup = stop as? Pickup {
-            return pickup.groceryStore?.address ?? pickup.restaurant?.address ?? ""
+            return pickup.foodProvider?.address ?? pickup.restaurant?.address ?? ""
         } else if let delivery = stop as? Delivery {
             return delivery.foodBank?.address ?? ""
         }
@@ -423,7 +423,7 @@ struct DriverControlPanel: View {
 
     private func contactName(for stop: Any) -> String? {
         if let pickup = stop as? Pickup {
-            return pickup.groceryStore?.contactName ?? pickup.restaurant?.managerName
+            return pickup.foodProvider?.contactName ?? pickup.restaurant?.managerName
         } else if let delivery = stop as? Delivery {
             return delivery.foodBank?.contactName
         }
@@ -432,7 +432,7 @@ struct DriverControlPanel: View {
 
     private func contactPhone(for stop: Any) -> String? {
         if let pickup = stop as? Pickup {
-            return pickup.groceryStore?.contactPhone ?? pickup.restaurant?.contactPhone
+            return pickup.foodProvider?.contactPhone ?? pickup.restaurant?.contactPhone
         } else if let delivery = stop as? Delivery {
             return delivery.foodBank?.contactPhone
         }
@@ -441,7 +441,7 @@ struct DriverControlPanel: View {
 
     private func contactEmail(for stop: Any) -> String? {
         if let pickup = stop as? Pickup {
-            return pickup.groceryStore?.contactEmail ?? pickup.restaurant?.contactEmail
+            return pickup.foodProvider?.contactEmail ?? pickup.restaurant?.contactEmail
         } else if let delivery = stop as? Delivery {
             return delivery.foodBank?.contactEmail
         }
@@ -453,8 +453,8 @@ struct DriverControlPanel: View {
         let lon: Double
 
         if let pickup = stop as? Pickup {
-            lat = pickup.groceryStore?.latitude ?? pickup.restaurant?.latitude ?? 0
-            lon = pickup.groceryStore?.longitude ?? pickup.restaurant?.longitude ?? 0
+            lat = pickup.foodProvider?.latitude ?? pickup.restaurant?.latitude ?? 0
+            lon = pickup.foodProvider?.longitude ?? pickup.restaurant?.longitude ?? 0
         } else if let delivery = stop as? Delivery {
             lat = delivery.foodBank?.latitude ?? 0
             lon = delivery.foodBank?.longitude ?? 0
@@ -463,9 +463,13 @@ struct DriverControlPanel: View {
         }
 
         let url = URL(string: "http://maps.apple.com/?daddr=\(lat),\(lon)&dirflg=d")!
+        #if canImport(UIKit)
         if UIApplication.shared.canOpenURL(url) {
             UIApplication.shared.open(url)
         }
+        #elseif canImport(AppKit)
+        NSWorkspace.shared.open(url)
+        #endif
     }
 }
 

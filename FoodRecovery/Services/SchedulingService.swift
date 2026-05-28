@@ -11,7 +11,7 @@ class SchedulingService {
   private let routeOptimizer = RouteOptimizationService()
 
   func generatePickupSchedule(for operation: RegionalOperation, on date: Date) -> [PickupRoute] {
-    let availableStores = operation.groceryStores.filter { $0.isActive }
+    let availableStores = operation.foodProviders.filter { $0.isActive }
     let availableFoodBanks = operation.foodBanks.filter { $0.isActive }
 
     guard !availableStores.isEmpty && !availableFoodBanks.isEmpty else {
@@ -73,7 +73,7 @@ class SchedulingService {
     isUrgent: Bool
   ) -> PickupRoute {
     // Group donations by store
-    let donationsByStore = Dictionary(grouping: donations) { $0.groceryStore }
+    let donationsByStore = Dictionary(grouping: donations) { $0.foodProvider }
 
     // Create pickups for each store
     var pickups: [Pickup] = []
@@ -82,7 +82,7 @@ class SchedulingService {
 
       let pickupTime = calculateOptimalPickupTime(for: store, on: date, startTime: startTime)
       let pickup = Pickup(scheduledTime: pickupTime)
-      pickup.groceryStore = store
+      pickup.foodProvider = store
       pickup.donations = storeDonations
 
       // Update donation status
@@ -169,7 +169,7 @@ class SchedulingService {
     return route
   }
 
-  private func calculateOptimalPickupTime(for store: GroceryStore, on date: Date, startTime: Date)
+  private func calculateOptimalPickupTime(for store: FoodProvider, on date: Date, startTime: Date)
     -> Date
   {
     // Consider store's preferred pickup times and operating hours

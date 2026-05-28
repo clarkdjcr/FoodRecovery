@@ -10,7 +10,7 @@ import Foundation
 import SwiftData
 
 @Model
-final class GroceryStore {
+final class FoodProvider {
   var id: UUID
   var name: String
   var address: String

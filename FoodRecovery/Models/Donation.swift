@@ -46,7 +46,7 @@ final class Donation {
   var carbonOffset: Double  // Estimated CO2 offset in kg
 
   // Relationships
-  @Relationship var groceryStore: GroceryStore?
+  @Relationship var foodProvider: FoodProvider?
   @Relationship var pickup: Pickup?
   @Relationship var delivery: Delivery?
 

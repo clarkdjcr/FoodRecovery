@@ -29,7 +29,7 @@ final class Pickup {
   var proofOfPickupPhoto: Data?
 
   // Relationships
-  @Relationship var groceryStore: GroceryStore?
+  @Relationship var foodProvider: FoodProvider?
   @Relationship var restaurant: Restaurant?
   @Relationship var pickupRoute: PickupRoute?
   @Relationship(deleteRule: .cascade) var donations: [Donation] = []

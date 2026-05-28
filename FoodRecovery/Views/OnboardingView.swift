@@ -182,7 +182,7 @@ private struct OnboardingGetStartedPage: View {
                     .fontWeight(.bold)
                     .foregroundColor(.primary)
 
-                Text("Start by setting up your regional operation,\nthen add food banks and grocery stores.")
+                Text("Start by setting up your regional operation,\nthen add food banks and food providers.")
                     .font(.body)
                     .foregroundColor(Color(red: 0.25, green: 0.25, blue: 0.30))
                     .multilineTextAlignment(.center)
@@ -192,7 +192,7 @@ private struct OnboardingGetStartedPage: View {
             VStack(alignment: .leading, spacing: 12) {
                 OnboardingStep(number: "1", text: "Regional Setup → create your operation")
                 OnboardingStep(number: "2", text: "Food Banks → register partner organizations")
-                OnboardingStep(number: "3", text: "Grocery Stores → add donation sources")
+                OnboardingStep(number: "3", text: "Food Providers → add donation sources")
                 OnboardingStep(number: "4", text: "Settings → add your OpenAI key for smart email processing")
             }
             .padding(.horizontal, 32)

@@ -130,10 +130,10 @@ struct OperationOverviewCard: View {
         Spacer()
 
         VStack(alignment: .trailing) {
-          Text("Grocery Stores")
+          Text("Food Providers")
             .font(.caption)
             .foregroundColor(AppTheme.Colors.textSecondary)
-          Text("\(operation.groceryStores.count)")
+          Text("\(operation.foodProviders.count)")
             .font(.title2)
             .fontWeight(.semibold)
         }
@@ -290,11 +290,11 @@ struct StatisticsCard: View {
   let operation: RegionalOperation
 
   var totalDonations: Int {
-    operation.groceryStores.flatMap { $0.donations }.count
+    operation.foodProviders.flatMap { $0.donations }.count
   }
 
   var totalQuantity: Double {
-    operation.groceryStores.flatMap { $0.donations }.reduce(0) { $0 + $1.quantity }
+    operation.foodProviders.flatMap { $0.donations }.reduce(0) { $0 + $1.quantity }
   }
 
   var completedDeliveries: Int {
@@ -410,11 +410,11 @@ struct SustainabilityImpactCard: View {
   let operation: RegionalOperation
 
   var totalQuantity: Double {
-    operation.groceryStores.flatMap { $0.donations }.reduce(0) { $0 + $1.quantity }
+    operation.foodProviders.flatMap { $0.donations }.reduce(0) { $0 + $1.quantity }
   }
 
   var totalCarbonOffset: Double {
-    operation.groceryStores.flatMap { $0.donations }.reduce(0) { $0 + $1.carbonOffset }
+    operation.foodProviders.flatMap { $0.donations }.reduce(0) { $0 + $1.carbonOffset }
   }
 
   var mealsProvided: Int {
@@ -476,7 +476,7 @@ struct RecentActivityCard: View {
   var recentActivity: [Any] {
     var activities: [Any] = []
     activities.append(contentsOf: operation.pickupRoutes.suffix(3))
-    let allDonations = operation.groceryStores.flatMap { store in
+    let allDonations = operation.foodProviders.flatMap { store in
       store.donations
     }
     activities.append(contentsOf: allDonations.suffix(3))
@@ -603,7 +603,7 @@ struct ScheduleGenerationView: View {
 
 enum ImpactReportGenerator {
   static func generate(for operation: RegionalOperation) -> String {
-    let donations = operation.groceryStores.flatMap { $0.donations }
+    let donations = operation.foodProviders.flatMap { $0.donations }
     let totalLbs = donations.reduce(0.0) { $0 + $1.quantity }
     let totalCO2 = donations.reduce(0.0) { $0 + $1.carbonOffset }
     let totalMeals = Int(totalLbs / 1.2)

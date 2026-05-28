@@ -43,7 +43,7 @@ class RouteOptimizationService {
 
     // Add pickup points
     for pickup in pickups {
-      guard let store = pickup.groceryStore else { continue }
+      guard let store = pickup.foodProvider else { continue }
       let timeWindow = TimeWindow(
         start: pickup.scheduledTime.addingTimeInterval(-1800),  // 30 min before
         end: pickup.scheduledTime.addingTimeInterval(1800)  // 30 min after

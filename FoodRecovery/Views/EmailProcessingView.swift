@@ -191,8 +191,8 @@ struct EmailProcessingView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var isManuallyVerified = false
 
-    var matchingStore: GroceryStore? {
-      operation.groceryStores.first { $0.donationEmail == fromEmail }
+    var matchingStore: FoodProvider? {
+      operation.foodProviders.first { $0.donationEmail == fromEmail }
     }
 
   var body: some View {
@@ -300,7 +300,7 @@ struct EmailProcessingView: View {
         isVerified: isManuallyVerified
       )
 
-      donation.groceryStore = store
+      donation.foodProvider = store
       store.donations.append(donation)
 
       modelContext.insert(donation)

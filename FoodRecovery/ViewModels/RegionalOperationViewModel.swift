@@ -93,14 +93,14 @@ class RegionalOperationViewModel: ObservableObject {
     loadOperations(modelContext: modelContext)
   }
 
-  func addGroceryStore(
+  func addFoodProvider(
     modelContext: ModelContext,
     to operation: RegionalOperation, name: String, address: String,
     location: CLLocationCoordinate2D, contactName: String, contactEmail: String,
     contactPhone: String, donationEmail: String, operatingHours: String,
     preferredPickupTimes: String
   ) {
-    let store = GroceryStore(
+    let provider = FoodProvider(
       name: name,
       address: address,
       latitude: location.latitude,
@@ -113,9 +113,9 @@ class RegionalOperationViewModel: ObservableObject {
       preferredPickupTimes: preferredPickupTimes
     )
 
-    store.regionalOperation = operation
-    operation.groceryStores.append(store)
-    modelContext.insert(store)
+    provider.regionalOperation = operation
+    operation.foodProviders.append(provider)
+    modelContext.insert(provider)
     loadOperations(modelContext: modelContext)
   }
 
@@ -138,10 +138,10 @@ class RegionalOperationViewModel: ObservableObject {
         try await emailService.sendRouteConfirmation(to: operation, route: route)
 
         for pickup in route.pickups {
-          if let store = pickup.groceryStore {
-            try await emailService.sendPickupConfirmation(to: store, pickup: pickup)
+          if let provider = pickup.foodProvider {
+            try await emailService.sendPickupConfirmation(to: provider, pickup: pickup)
             NotificationService.shared.schedulePickupReminder(
-                pickupId: pickup.id, storeName: store.name, scheduledTime: pickup.scheduledTime)
+                pickupId: pickup.id, storeName: provider.name, scheduledTime: pickup.scheduledTime)
           }
         }
 

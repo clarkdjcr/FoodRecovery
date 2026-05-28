@@ -14,7 +14,7 @@ struct FoodRecoveryApp: App {
     let schema = Schema([
       RegionalOperation.self,
       FoodBank.self,
-      GroceryStore.self,
+      FoodProvider.self,
       Restaurant.self,
       RestaurantDonation.self,
       Donation.self,

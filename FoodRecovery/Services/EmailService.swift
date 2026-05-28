@@ -23,7 +23,7 @@ class EmailService {
     self.password = password
   }
 
-  func sendPickupConfirmation(to store: GroceryStore, pickup: Pickup) async throws {
+  func sendPickupConfirmation(to store: FoodProvider, pickup: Pickup) async throws {
     let subject =
       "Food Donation Pickup Confirmation - \(pickup.scheduledTime.formatted(date: .abbreviated, time: .shortened))"
     let body = createPickupConfirmationBody(store: store, pickup: pickup)
@@ -47,7 +47,7 @@ class EmailService {
     try await sendEmail(to: operation.contactEmail, subject: subject, body: body)
   }
 
-  private func createPickupConfirmationBody(store: GroceryStore, pickup: Pickup) -> String {
+  private func createPickupConfirmationBody(store: FoodProvider, pickup: Pickup) -> String {
     let formatter = DateFormatter()
     formatter.dateStyle = .full
     formatter.timeStyle = .short
@@ -121,7 +121,7 @@ class EmailService {
     formatter.timeStyle = .short
 
     let pickupList = route.pickups.map { pickup in
-      "• \(pickup.groceryStore?.name ?? "Unknown Store"): \(formatter.string(from: pickup.scheduledTime))"
+      "• \(pickup.foodProvider?.name ?? pickup.restaurant?.name ?? "Unknown Provider"): \(formatter.string(from: pickup.scheduledTime))"
     }.joined(separator: "\n")
 
     let deliveryList = route.deliveries.map { delivery in

@@ -10,7 +10,7 @@ import MapKit
 import SwiftData
 import SwiftUI
 
-struct GroceryStoreRegistrationView: View {
+struct FoodProviderRegistrationView: View {
   @Environment(\.modelContext) private var modelContext
   @StateObject private var viewModel: RegionalOperationViewModel = RegionalOperationViewModel()
   @State private var selectedOperation: RegionalOperation?
@@ -34,10 +34,10 @@ struct GroceryStoreRegistrationView: View {
         LazyVStack(spacing: 20) {
           // Header
           VStack(alignment: .leading, spacing: 8) {
-            Text("Grocery Store Registration")
+            Text("Food Provider Registration")
               .font(.largeTitle)
               .fontWeight(.bold)
-            Text("Register your store to participate in food waste recovery")
+            Text("Register your food provider to participate in food waste recovery")
               .font(.subheadline)
               .foregroundColor(AppTheme.Colors.textSecondary)
           }
@@ -65,14 +65,14 @@ struct GroceryStoreRegistrationView: View {
           
           // Store Details
           ModernSectionCard(
-            "Store Details",
-            subtitle: "Basic information about your store",
-            icon: "cart.fill"
+            "Provider Details",
+            subtitle: "Basic information about your food provider",
+            icon: "storefront.fill"
           ) {
             VStack(spacing: 16) {
               ModernTextField(
-                title: "Store Name",
-                placeholder: "Enter store name",
+                title: "Provider Name",
+                placeholder: "Enter provider name",
                 text: $name,
                 icon: "storefront"
               )
@@ -195,7 +195,7 @@ struct GroceryStoreRegistrationView: View {
           
           // Submit Button
           ModernButton(
-            title: "Register Store",
+            title: "Register Provider",
             action: registerStore,
             style: .primary,
             icon: "checkmark.circle.fill",
@@ -209,7 +209,7 @@ struct GroceryStoreRegistrationView: View {
       .sheet(isPresented: $showingMap) {
         MapSelectionView(selectedCoordinate: $location)
       }
-      .alert("Store Registered Successfully!", isPresented: $showingSuccess) {
+      .alert("Provider Registered Successfully!", isPresented: $showingSuccess) {
         Button("OK") {
           resetForm()
         }
@@ -238,7 +238,7 @@ struct GroceryStoreRegistrationView: View {
     private func registerStore() {
     guard let operation = selectedOperation else { return }
 
-    viewModel.addGroceryStore(
+    viewModel.addFoodProvider(
       modelContext: modelContext,
       to: operation,
       name: name,
@@ -281,5 +281,5 @@ struct GroceryStoreRegistrationView: View {
   }
 
 #Preview {
-  GroceryStoreRegistrationView()
+  FoodProviderRegistrationView()
 }

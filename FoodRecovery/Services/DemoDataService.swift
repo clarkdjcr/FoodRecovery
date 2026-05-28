@@ -78,8 +78,8 @@ class DemoDataService {
     modelContext.insert(foodBank2)
     modelContext.insert(foodBank3)
 
-    // Create demo grocery stores
-    let store1 = GroceryStore(
+    // Create demo food providers
+    let store1 = FoodProvider(
       name: "Whole Foods Market - Market Street",
       address: "399 4th St, San Francisco, CA 94107",
       latitude: 37.7849,
@@ -92,7 +92,7 @@ class DemoDataService {
       preferredPickupTimes: "morning"
     )
 
-    let store2 = GroceryStore(
+    let store2 = FoodProvider(
       name: "Safeway - Mission District",
       address: "2020 Market St, San Francisco, CA 94114",
       latitude: 37.7649,
@@ -105,7 +105,7 @@ class DemoDataService {
       preferredPickupTimes: "afternoon"
     )
 
-    let store3 = GroceryStore(
+    let store3 = FoodProvider(
       name: "Trader Joe's - Berkeley",
       address: "1885 Solano Ave, Berkeley, CA 94707",
       latitude: 37.8715,
@@ -122,7 +122,7 @@ class DemoDataService {
     store2.regionalOperation = operation
     store3.regionalOperation = operation
 
-    operation.groceryStores.append(contentsOf: [store1, store2, store3])
+    operation.foodProviders.append(contentsOf: [store1, store2, store3])
 
     modelContext.insert(store1)
     modelContext.insert(store2)
@@ -168,9 +168,9 @@ class DemoDataService {
         "{\"confidence\": 0.92, \"foodType\": \"dairy\", \"quantity\": 32.0, \"expirationDate\": \"2024-01-16\"}"
     )
 
-    donation1.groceryStore = store1
-    donation2.groceryStore = store2
-    donation3.groceryStore = store3
+    donation1.foodProvider = store1
+    donation2.foodProvider = store2
+    donation3.foodProvider = store3
 
     store1.donations.append(donation1)
     store2.donations.append(donation2)

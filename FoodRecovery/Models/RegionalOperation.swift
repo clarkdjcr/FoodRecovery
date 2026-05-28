@@ -26,7 +26,7 @@ final class RegionalOperation {
 
   // Relationships
   @Relationship(deleteRule: .cascade) var foodBanks: [FoodBank] = []
-  @Relationship(deleteRule: .cascade) var groceryStores: [GroceryStore] = []
+  @Relationship(deleteRule: .cascade) var foodProviders: [FoodProvider] = []
   @Relationship(deleteRule: .cascade) var restaurants: [Restaurant] = []
   @Relationship(deleteRule: .cascade) var pickupRoutes: [PickupRoute] = []
 

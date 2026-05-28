@@ -18,9 +18,10 @@ enum NavigationItem: String, CaseIterable, Identifiable {
   case aiProcessing = "AI Processing"
   case restaurants = "Restaurants"
   case routes = "Routes"
-  
+  case settings = "Settings"
+
   var id: String { rawValue }
-  
+
   var icon: String {
     switch self {
     case .dashboard: return "chart.bar.fill"
@@ -30,6 +31,7 @@ enum NavigationItem: String, CaseIterable, Identifiable {
     case .aiProcessing: return "envelope.fill"
     case .restaurants: return "fork.knife.circle.fill"
     case .routes: return "map.fill"
+    case .settings: return "gearshape.fill"
     }
   }
 }
@@ -67,6 +69,8 @@ struct ContentView: View {
         RestaurantOnboardingView()
       case .routes:
         RouteListView()
+      case .settings:
+        SettingsView()
       }
     }
     .accentColor(.green)

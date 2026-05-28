@@ -30,6 +30,7 @@ final class PickupRoute {
   var createdAt: Date
   var completedAt: Date?
   var currentStopIndex: Int = 0
+  var vehicleId: String?
 
   // Relationships
   @Relationship var regionalOperation: RegionalOperation?

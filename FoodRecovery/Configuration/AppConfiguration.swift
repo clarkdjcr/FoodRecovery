@@ -8,30 +8,35 @@
 import Foundation
 
 struct AppConfiguration {
-  // OpenAI Configuration (set via environment or user settings before use)
-  static let openAIAPIKey = ""
-  static let openAIModel = "gpt-4"
+    // Keychain key names
+    static let openAIKeyName = "openai_api_key"
+    static let smtpUsernameKeyName = "smtp_username"
+    static let smtpPasswordKeyName = "smtp_password"
 
-  // Email Configuration (configure before use)
-  static let smtpHost = "smtp.gmail.com"
-  static let smtpPort = 587
-  static let smtpUsername = ""
-  static let smtpPassword = ""
-  static let defaultToEmail = ""
+    // OpenAI Configuration — loaded from Keychain at runtime
+    static var openAIAPIKey: String { KeychainService.retrieve(forKey: openAIKeyName) ?? "" }
+    static let openAIModel = "gpt-4o-mini"
 
-  // Route Optimization Configuration
-  static let averageSpeedMPH = 30.0
-  static let stopTimeMinutes = 15.0
-  static let maxRouteDurationHours = 4.0
+    // Email Configuration — host/port are not secrets
+    static let smtpHost = "smtp.gmail.com"
+    static let smtpPort = 587
+    static var smtpUsername: String { KeychainService.retrieve(forKey: smtpUsernameKeyName) ?? "" }
+    static var smtpPassword: String { KeychainService.retrieve(forKey: smtpPasswordKeyName) ?? "" }
+    static let defaultToEmail = ""
 
-  // Default Values
-  static let defaultServiceRadiusMiles = 35.0
-  static let defaultMaxFoodBanks = 5
-  static let defaultOperatingHours = "8:00 AM - 6:00 PM"
+    // Route Optimization Configuration
+    static let averageSpeedMPH = 30.0
+    static let stopTimeMinutes = 15.0
+    static let maxRouteDurationHours = 4.0
 
-  // Validation Rules
-  static let minServiceRadiusMiles = 10.0
-  static let maxServiceRadiusMiles = 50.0
-  static let minFoodBankCapacity = 100
-  static let maxFoodBankCapacity = 5000
+    // Default Values
+    static let defaultServiceRadiusMiles = 35.0
+    static let defaultMaxFoodBanks = 5
+    static let defaultOperatingHours = "8:00 AM - 6:00 PM"
+
+    // Validation Rules
+    static let minServiceRadiusMiles = 10.0
+    static let maxServiceRadiusMiles = 50.0
+    static let minFoodBankCapacity = 100
+    static let maxFoodBankCapacity = 5000
 }

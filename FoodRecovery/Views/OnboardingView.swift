@@ -20,8 +20,10 @@ struct OnboardingView: View {
             OnboardingGetStartedPage(isPresented: $isPresented)
                 .tag(2)
         }
+        #if os(iOS)
         .tabViewStyle(.page)
         .indexViewStyle(.page(backgroundDisplayMode: .always))
+        #endif
         .background(Color(red: 0.95, green: 0.95, blue: 0.97).ignoresSafeArea())
         .interactiveDismissDisabled()
     }

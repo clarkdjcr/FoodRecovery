@@ -423,7 +423,7 @@ struct DriverControlPanel: View {
 
     private func contactName(for stop: Any) -> String? {
         if let pickup = stop as? Pickup {
-            return pickup.groceryStore?.contactName ?? pickup.restaurant?.contactName
+            return pickup.groceryStore?.contactName ?? pickup.restaurant?.managerName
         } else if let delivery = stop as? Delivery {
             return delivery.foodBank?.contactName
         }

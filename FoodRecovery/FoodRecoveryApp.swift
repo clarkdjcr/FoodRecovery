@@ -41,6 +41,9 @@ struct FoodRecoveryApp: App {
   var body: some Scene {
     WindowGroup {
       ContentView()
+        .task {
+          await NotificationService.shared.requestPermission()
+        }
     }
     .modelContainer(sharedModelContainer)
   }

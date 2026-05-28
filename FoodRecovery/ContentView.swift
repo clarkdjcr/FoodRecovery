@@ -39,6 +39,8 @@ enum NavigationItem: String, CaseIterable, Identifiable {
 struct ContentView: View {
   @Environment(\.modelContext) private var modelContext
   @State private var selectedItem: NavigationItem = .dashboard
+  @AppStorage("onboardingCompleted") private var onboardingCompleted = false
+  @State private var showingOnboarding = false
 
   var body: some View {
     NavigationSplitView {
@@ -79,6 +81,12 @@ struct ContentView: View {
         DemoDataService.createDemoData(modelContext: modelContext)
         UserDefaults.standard.set(true, forKey: demoDataLoadedKey)
       }
+      if !onboardingCompleted {
+        showingOnboarding = true
+      }
+    }
+    .fullScreenCover(isPresented: $showingOnboarding) {
+      OnboardingView(isPresented: $showingOnboarding)
     }
   }
 }

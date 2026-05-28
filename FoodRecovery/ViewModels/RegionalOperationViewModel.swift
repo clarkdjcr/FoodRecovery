@@ -130,12 +130,18 @@ class RegionalOperationViewModel: ObservableObject {
         operation.pickupRoutes.append(route)
         // modelContext.insert(route)
 
-        // Send email confirmations
+        // Schedule overdue alert if route isn't started 15 min after planned start
+        NotificationService.shared.scheduleRouteOverdueAlert(
+            routeId: route.id, startTime: route.startTime)
+
+        // Send email confirmations and schedule pickup reminders
         try await emailService.sendRouteConfirmation(to: operation, route: route)
 
         for pickup in route.pickups {
           if let store = pickup.groceryStore {
             try await emailService.sendPickupConfirmation(to: store, pickup: pickup)
+            NotificationService.shared.schedulePickupReminder(
+                pickupId: pickup.id, storeName: store.name, scheduledTime: pickup.scheduledTime)
           }
         }
 

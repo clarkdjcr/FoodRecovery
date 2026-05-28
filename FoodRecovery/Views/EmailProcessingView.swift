@@ -305,6 +305,18 @@ struct EmailProcessingView: View {
 
       modelContext.insert(donation)
 
+      // Schedule expiry alert if the donation has an expiration date
+      if let expiryDate = result.expirationDate {
+        Task {
+          await NotificationService.shared.scheduleDonationExpiryAlert(
+            donationId: donation.id,
+            description: result.foodDescription,
+            storeName: store.name,
+            expiryDate: expiryDate
+          )
+        }
+      }
+
       do {
         try modelContext.save()
         dismiss()

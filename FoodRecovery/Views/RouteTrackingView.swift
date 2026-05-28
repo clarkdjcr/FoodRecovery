@@ -7,6 +7,7 @@
 
 import CoreLocation
 import MapKit
+import PhotosUI
 import SwiftData
 import SwiftUI
 
@@ -18,171 +19,166 @@ struct RouteTrackingView: View {
     @State private var selectedAnnotation: RouteAnnotation?
     @State private var routes: [MKRoute] = []
     @State private var isCalculatingRoute = false
-    
+    @State private var capturedPhotoData: Data?
+
     var body: some View {
         VStack {
-                MapReader { proxy in
-                    Map(position: $cameraPosition, selection: $selectedAnnotation) {
-                        // Show current location
-                        if let currentLocation = locationManager.currentLocation {
-                            Annotation("Current Location", coordinate: currentLocation.coordinate) {
-                                Circle()
-                                    .fill(.blue)
-                                    .frame(width: 16, height: 16)
-                                    .overlay(
-                                        Circle()
-                                            .stroke(.white, lineWidth: 2)
-                                    )
-                            }
-                        }
-                        
-                        // Show pickup locations
-                        ForEach(pickupRoute.pickups, id: \.id) { pickup in
-                            if let store = pickup.groceryStore,
-                               let lat = store.latitude,
-                               let lon = store.longitude {
-                                Annotation("Pickup: \(store.name)", 
-                                         coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon)) {
-                                    PickupAnnotationView(pickup: pickup)
-                                }
-                                .tag(RouteAnnotation.pickup(pickup))
-                            }
-                        }
-                        
-                        // Show delivery locations
-                        ForEach(pickupRoute.deliveries, id: \.id) { delivery in
-                            if let foodBank = delivery.foodBank,
-                               let lat = foodBank.latitude,
-                               let lon = foodBank.longitude {
-                                Annotation("Delivery: \(foodBank.name)", 
-                                         coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon)) {
-                                    DeliveryAnnotationView(delivery: delivery)
-                                }
-                                .tag(RouteAnnotation.delivery(delivery))
-                            }
-                        }
-                        
-                        // Show route polylines
-                        ForEach(routes.indices, id: \.self) { index in
-                            MapPolyline(routes[index].polyline)
-                                .stroke(.blue, lineWidth: 5)
+            MapReader { proxy in
+                Map(position: $cameraPosition, selection: $selectedAnnotation) {
+                    if let currentLocation = locationManager.currentLocation {
+                        Annotation("Current Location", coordinate: currentLocation.coordinate) {
+                            Circle()
+                                .fill(.blue)
+                                .frame(width: 16, height: 16)
+                                .overlay(Circle().stroke(.white, lineWidth: 2))
                         }
                     }
-                    .mapStyle(.standard(elevation: .flat))
-                    .mapControls {
-                        MapUserLocationButton()
-                        MapCompass()
-                        MapScaleView()
+
+                    ForEach(pickupRoute.pickups, id: \.id) { pickup in
+                        if let store = pickup.groceryStore,
+                           let lat = store.latitude,
+                           let lon = store.longitude {
+                            Annotation("Pickup: \(store.name)",
+                                       coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon)) {
+                                PickupAnnotationView(pickup: pickup)
+                            }
+                            .tag(RouteAnnotation.pickup(pickup))
+                        }
+                    }
+
+                    ForEach(pickupRoute.deliveries, id: \.id) { delivery in
+                        if let foodBank = delivery.foodBank,
+                           let lat = foodBank.latitude,
+                           let lon = foodBank.longitude {
+                            Annotation("Delivery: \(foodBank.name)",
+                                       coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon)) {
+                                DeliveryAnnotationView(delivery: delivery)
+                            }
+                            .tag(RouteAnnotation.delivery(delivery))
+                        }
+                    }
+
+                    ForEach(routes.indices, id: \.self) { index in
+                        MapPolyline(routes[index].polyline)
+                            .stroke(.blue, lineWidth: 5)
                     }
                 }
-                
-                // Driver Control Panel
-                DriverControlPanel(
-                    pickupRoute: pickupRoute,
-                    currentStop: currentStop,
-                    isCalculatingRoute: isCalculatingRoute,
-                    onStartRoute: { startRoute() },
-                    onCompleteStop: { markCurrentStopComplete() },
-                    onRecalculate: { await calculateOptimizedRoute() }
-                )
+                .mapStyle(.standard(elevation: .flat))
+                .mapControls {
+                    MapUserLocationButton()
+                    MapCompass()
+                    MapScaleView()
+                }
             }
-            .navigationTitle("Route: \(pickupRoute.date.formatted(date: .abbreviated, time: .omitted))")
-            .task {
-                locationManager.requestLocationPermission()
-                await calculateOptimizedRoute()
-            }
+
+            DriverControlPanel(
+                pickupRoute: pickupRoute,
+                currentStop: currentStop,
+                totalStops: allStops.count,
+                isCalculatingRoute: isCalculatingRoute,
+                capturedPhotoData: $capturedPhotoData,
+                onStartRoute: { startRoute() },
+                onCompleteStop: { photoData in markCurrentStopComplete(with: photoData) },
+                onRecalculate: { await calculateOptimizedRoute() }
+            )
         }
-    
-    // MARK: - Private Functions
-    
+        .navigationTitle("Route: \(pickupRoute.date.formatted(date: .abbreviated, time: .omitted))")
+        .task {
+            locationManager.requestLocationPermission()
+            await calculateOptimizedRoute()
+        }
+    }
+
+    // MARK: - Private
+
     private var allStops: [Any] {
         var stops: [Any] = []
         stops.append(contentsOf: pickupRoute.pickups)
         stops.append(contentsOf: pickupRoute.deliveries)
-        // In a real app, you'd sort these by the optimized order
         return stops
     }
-    
+
     private var currentStop: Any? {
         guard pickupRoute.currentStopIndex < allStops.count else { return nil }
         return allStops[pickupRoute.currentStopIndex]
     }
-    
+
     @MainActor
-    private func markCurrentStopComplete() {
+    private func markCurrentStopComplete(with photoData: Data?) {
         if let pickup = currentStop as? Pickup {
             pickup.status = .completed
             pickup.completedAt = Date()
+            pickup.proofOfPickupPhoto = photoData
         } else if let delivery = currentStop as? Delivery {
             delivery.status = .completed
             delivery.completedAt = Date()
+            delivery.proofOfDeliveryPhoto = photoData
         }
-        
+
         pickupRoute.currentStopIndex += 1
-        
+        capturedPhotoData = nil
+
         if pickupRoute.currentStopIndex >= allStops.count {
             pickupRoute.status = .completed
             pickupRoute.completedAt = Date()
         }
-        
+
         try? modelContext.save()
     }
-    
+
     @MainActor
     private func startRoute() {
         pickupRoute.status = .active
         pickupRoute.currentStopIndex = 0
         try? modelContext.save()
+
+        // Schedule pickup reminders now that the route is live
+        for pickup in pickupRoute.pickups {
+            if let store = pickup.groceryStore {
+                NotificationService.shared.schedulePickupReminder(
+                    pickupId: pickup.id,
+                    storeName: store.name,
+                    scheduledTime: pickup.scheduledTime
+                )
+            }
+        }
     }
 
     @MainActor
     private func calculateOptimizedRoute() async {
         isCalculatingRoute = true
-        
         var coordinates: [CLLocationCoordinate2D] = []
-        
-        // Add current location as starting point
+
         if let currentLocation = locationManager.currentLocation {
             coordinates.append(currentLocation.coordinate)
         }
-        
-        // Add pickup locations
         for pickup in pickupRoute.pickups {
-            if let store = pickup.groceryStore,
-               let lat = store.latitude,
-               let lon = store.longitude {
+            if let store = pickup.groceryStore, let lat = store.latitude, let lon = store.longitude {
                 coordinates.append(CLLocationCoordinate2D(latitude: lat, longitude: lon))
             }
         }
-        
-        // Add delivery locations
         for delivery in pickupRoute.deliveries {
-            if let foodBank = delivery.foodBank,
-               let lat = foodBank.latitude,
-               let lon = foodBank.longitude {
+            if let foodBank = delivery.foodBank, let lat = foodBank.latitude, let lon = foodBank.longitude {
                 coordinates.append(CLLocationCoordinate2D(latitude: lat, longitude: lon))
             }
         }
-        
+
         do {
             routes = try await locationManager.calculateOptimizedRoute(stops: coordinates)
-            
-            // Update route statistics
             let totalDistance = routes.reduce(0) { $0 + $1.distance }
             let totalTime = routes.reduce(0) { $0 + $1.expectedTravelTime }
-            
-            pickupRoute.totalDistance = totalDistance / 1609.34 // Convert to miles
+            pickupRoute.totalDistance = totalDistance / 1609.34
             pickupRoute.estimatedDuration = totalTime
-            
             try modelContext.save()
-            
         } catch {
             print("Failed to calculate route: \(error)")
         }
-        
+
         isCalculatingRoute = false
     }
 }
+
+// MARK: - Route Annotations
 
 enum RouteAnnotation: Hashable {
     case pickup(Pickup)
@@ -191,22 +187,17 @@ enum RouteAnnotation: Hashable {
 
 struct PickupAnnotationView: View {
     let pickup: Pickup
-    
+
     var body: some View {
-        VStack {
-            Image(systemName: "cart.fill")
-                .foregroundColor(.white)
-                .font(.headline)
-                .padding(8)
-                .background(statusColor)
-                .clipShape(Circle())
-                .overlay(
-                    Circle()
-                        .stroke(.white, lineWidth: 2)
-                )
-        }
+        Image(systemName: "cart.fill")
+            .foregroundColor(.white)
+            .font(.headline)
+            .padding(8)
+            .background(statusColor)
+            .clipShape(Circle())
+            .overlay(Circle().stroke(.white, lineWidth: 2))
     }
-    
+
     private var statusColor: Color {
         switch pickup.status {
         case .proposed: return .orange
@@ -220,22 +211,17 @@ struct PickupAnnotationView: View {
 
 struct DeliveryAnnotationView: View {
     let delivery: Delivery
-    
+
     var body: some View {
-        VStack {
-            Image(systemName: "house.fill")
-                .foregroundColor(.white)
-                .font(.headline)
-                .padding(8)
-                .background(statusColor)
-                .clipShape(Circle())
-                .overlay(
-                    Circle()
-                        .stroke(.white, lineWidth: 2)
-                )
-        }
+        Image(systemName: "house.fill")
+            .foregroundColor(.white)
+            .font(.headline)
+            .padding(8)
+            .background(statusColor)
+            .clipShape(Circle())
+            .overlay(Circle().stroke(.white, lineWidth: 2))
     }
-    
+
     private var statusColor: Color {
         switch delivery.status {
         case .proposed: return .orange
@@ -247,26 +233,42 @@ struct DeliveryAnnotationView: View {
     }
 }
 
+// MARK: - Driver Control Panel
+
 struct DriverControlPanel: View {
     let pickupRoute: PickupRoute
     let currentStop: Any?
+    let totalStops: Int
     let isCalculatingRoute: Bool
+    @Binding var capturedPhotoData: Data?
     let onStartRoute: () -> Void
-    let onCompleteStop: () -> Void
+    let onCompleteStop: (Data?) -> Void
     let onRecalculate: () async -> Void
-    
+
+    @State private var showingPhotoOptions = false
+    @State private var showingCamera = false
+    @State private var selectedPhotoItem: PhotosPickerItem?
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            // Header row
             HStack {
                 VStack(alignment: .leading) {
                     Text(pickupRoute.status == .active ? "Current Stop" : "Route Status")
                         .font(.headline)
-                    Text(pickupRoute.status.rawValue.capitalized)
-                        .font(.subheadline)
-                        .foregroundColor(statusColor)
+                    HStack(spacing: 8) {
+                        Text(pickupRoute.status.rawValue.capitalized)
+                            .font(.subheadline)
+                            .foregroundColor(statusColor)
+                        if pickupRoute.status == .active {
+                            Text("· Stop \(pickupRoute.currentStopIndex + 1) of \(totalStops)")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                    }
                 }
                 Spacer()
-                
+
                 if pickupRoute.status == .planned {
                     Button(action: onStartRoute) {
                         Label("Start Route", systemImage: "play.fill")
@@ -275,47 +277,104 @@ struct DriverControlPanel: View {
                 } else if isCalculatingRoute {
                     ProgressView()
                 } else {
-                    Button(action: {
+                    Button {
                         Task { await onRecalculate() }
-                    }) {
+                    } label: {
                         Image(systemName: "arrow.clockwise")
                     }
                     .buttonStyle(.bordered)
                 }
             }
-            
+
             if let stop = currentStop {
                 VStack(alignment: .leading, spacing: 12) {
+                    // Stop name & type
                     HStack {
                         Image(systemName: stop is Pickup ? "cart.fill" : "house.fill")
                             .foregroundColor(.blue)
-                        Text(stopName(stop))
-                            .font(.title3)
-                            .fontWeight(.bold)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(stopName(stop))
+                                .font(.title3)
+                                .fontWeight(.bold)
+                            if let contact = contactName(for: stop) {
+                                Text("Contact: \(contact)")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
                     }
-                    
+
                     Text(stopAddress(stop))
                         .font(.subheadline)
                         .foregroundColor(AppTheme.Colors.textSecondary)
-                    
-                    HStack(spacing: 12) {
+
+                    // Action buttons row 1: navigate + call + email
+                    HStack(spacing: 8) {
                         Button(action: { openInMaps(stop) }) {
                             Label("Navigate", systemImage: "map.fill")
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.bordered)
-                        
-                        Button(action: onCompleteStop) {
-                            Label("Complete", systemImage: "checkmark.circle.fill")
-                                .frame(maxWidth: .infinity)
+
+                        if let phone = contactPhone(for: stop),
+                           let url = URL(string: "tel:\(phone.filter(\.isNumber))") {
+                            Link(destination: url) {
+                                Label("Call", systemImage: "phone.fill")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.bordered)
                         }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.green)
+
+                        if let email = contactEmail(for: stop),
+                           let url = URL(string: "mailto:\(email)") {
+                            Link(destination: url) {
+                                Label("Email", systemImage: "envelope.fill")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.bordered)
+                        }
                     }
+
+                    // Photo capture row
+                    HStack(spacing: 8) {
+                        PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                            Label(
+                                capturedPhotoData != nil ? "Photo Added" : "Add Photo Proof",
+                                systemImage: capturedPhotoData != nil ? "checkmark.circle.fill" : "camera.fill"
+                            )
+                            .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(capturedPhotoData != nil ? .green : .primary)
+                        .onChange(of: selectedPhotoItem) { _, item in
+                            Task {
+                                capturedPhotoData = try? await item?.loadTransferable(type: Data.self)
+                            }
+                        }
+
+                        if capturedPhotoData != nil {
+                            Button(role: .destructive) {
+                                capturedPhotoData = nil
+                                selectedPhotoItem = nil
+                            } label: {
+                                Image(systemName: "trash")
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+
+                    // Complete button
+                    Button(action: { onCompleteStop(capturedPhotoData) }) {
+                        Label("Mark Stop Complete", systemImage: "checkmark.circle.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.green)
                 }
                 .padding()
                 .background(Color.blue.opacity(0.05))
                 .cornerRadius(12)
+
             } else if pickupRoute.status == .completed {
                 HStack {
                     Image(systemName: "checkmark.seal.fill")
@@ -332,7 +391,9 @@ struct DriverControlPanel: View {
         .cornerRadius(16)
         .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: -5)
     }
-    
+
+    // MARK: - Helpers
+
     private var statusColor: Color {
         switch pickupRoute.status {
         case .planned: return .orange
@@ -341,7 +402,7 @@ struct DriverControlPanel: View {
         case .cancelled: return .red
         }
     }
-    
+
     private func stopName(_ stop: Any) -> String {
         if let pickup = stop as? Pickup {
             return pickup.groceryStore?.name ?? pickup.restaurant?.name ?? "Unknown Pickup"
@@ -350,7 +411,7 @@ struct DriverControlPanel: View {
         }
         return "Unknown"
     }
-    
+
     private func stopAddress(_ stop: Any) -> String {
         if let pickup = stop as? Pickup {
             return pickup.groceryStore?.address ?? pickup.restaurant?.address ?? ""
@@ -359,7 +420,34 @@ struct DriverControlPanel: View {
         }
         return ""
     }
-    
+
+    private func contactName(for stop: Any) -> String? {
+        if let pickup = stop as? Pickup {
+            return pickup.groceryStore?.contactName ?? pickup.restaurant?.contactName
+        } else if let delivery = stop as? Delivery {
+            return delivery.foodBank?.contactName
+        }
+        return nil
+    }
+
+    private func contactPhone(for stop: Any) -> String? {
+        if let pickup = stop as? Pickup {
+            return pickup.groceryStore?.contactPhone ?? pickup.restaurant?.contactPhone
+        } else if let delivery = stop as? Delivery {
+            return delivery.foodBank?.contactPhone
+        }
+        return nil
+    }
+
+    private func contactEmail(for stop: Any) -> String? {
+        if let pickup = stop as? Pickup {
+            return pickup.groceryStore?.contactEmail ?? pickup.restaurant?.contactEmail
+        } else if let delivery = stop as? Delivery {
+            return delivery.foodBank?.contactEmail
+        }
+        return nil
+    }
+
     private func openInMaps(_ stop: Any) {
         let lat: Double
         let lon: Double
@@ -373,7 +461,7 @@ struct DriverControlPanel: View {
         } else {
             return
         }
-        
+
         let url = URL(string: "http://maps.apple.com/?daddr=\(lat),\(lon)&dirflg=d")!
         if UIApplication.shared.canOpenURL(url) {
             UIApplication.shared.open(url)
@@ -381,17 +469,12 @@ struct DriverControlPanel: View {
     }
 }
 
+// MARK: - Preview
+
 #Preview {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
     let container = try! ModelContainer(for: PickupRoute.self, configurations: config)
-    
-    let sampleRoute = PickupRoute(
-        date: Date(),
-        startTime: Date(),
-        endTime: Date().addingTimeInterval(3600)
-    )
-    
+    let sampleRoute = PickupRoute(date: Date(), startTime: Date(), endTime: Date().addingTimeInterval(3600))
     RouteTrackingView(pickupRoute: sampleRoute)
         .modelContainer(container)
 }
-

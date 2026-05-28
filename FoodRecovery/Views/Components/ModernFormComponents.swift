@@ -50,10 +50,10 @@ struct ModernTextField: View {
                 .padding(.vertical, 12)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(.quaternary)
+                        .fill(Color(white: 0.93))
                         .overlay(
                             RoundedRectangle(cornerRadius: 12)
-                                .stroke(isFocused ? .blue : .clear, lineWidth: 2)
+                                .stroke(isFocused ? Color.blue : Color.gray.opacity(0.25), lineWidth: isFocused ? 2 : 1)
                         )
                 )
                 .animation(.easeInOut(duration: 0.2), value: isFocused)
@@ -102,7 +102,11 @@ struct ModernPicker<SelectionValue: Hashable, Content: View>: View {
             .padding(.vertical, 12)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(.quaternary)
+                    .fill(Color(white: 0.93))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.gray.opacity(0.25), lineWidth: 1)
+                    )
             )
         }
     }
@@ -365,7 +369,11 @@ struct LocationDisplayCard: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(.quaternary)
+                .fill(Color(white: 0.93))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.gray.opacity(0.25), lineWidth: 1)
+                )
         )
     }
 }

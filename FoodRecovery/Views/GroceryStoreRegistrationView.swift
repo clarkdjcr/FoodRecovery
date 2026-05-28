@@ -37,6 +37,7 @@ struct FoodProviderRegistrationView: View {
             Text("Food Provider Registration")
               .font(.largeTitle)
               .fontWeight(.bold)
+              .foregroundColor(AppTheme.Colors.textPrimary)
             Text("Register your food provider to participate in food waste recovery")
               .font(.subheadline)
               .foregroundColor(AppTheme.Colors.textSecondary)

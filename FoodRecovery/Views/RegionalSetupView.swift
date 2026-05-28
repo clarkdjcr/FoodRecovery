@@ -33,6 +33,7 @@ struct RegionalSetupView: View {
             Text("Regional Setup")
               .font(.largeTitle)
               .fontWeight(.bold)
+              .foregroundColor(AppTheme.Colors.textPrimary)
             Text("Create a new regional food recovery operation to coordinate donations and deliveries in your area")
               .font(.subheadline)
               .foregroundColor(AppTheme.Colors.textSecondary)

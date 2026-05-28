@@ -38,6 +38,7 @@ struct FoodBankOnboardingView: View {
             Text("Food Bank Onboarding")
               .font(.largeTitle)
               .fontWeight(.bold)
+              .foregroundColor(AppTheme.Colors.textPrimary)
             Text("Register a new food bank to join your regional operation")
               .font(.subheadline)
               .foregroundColor(AppTheme.Colors.textSecondary)

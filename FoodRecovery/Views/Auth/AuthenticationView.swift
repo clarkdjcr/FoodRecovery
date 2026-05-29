@@ -1,6 +1,7 @@
 // AuthenticationView.swift
 // Sign-in / sign-up gate shown when no Firebase user is authenticated.
 
+import AuthenticationServices
 import SwiftUI
 
 struct AuthenticationView: View {
@@ -20,6 +21,7 @@ struct AuthenticationView: View {
             VStack(spacing: 32) {
                 header
                 formCard
+                appleButton
                 googleButton
                 modeToggle
                 Divider().padding(.horizontal)
@@ -121,6 +123,18 @@ struct AuthenticationView: View {
         .background(AppTheme.Colors.cardBackground)
         .cornerRadius(16)
         .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
+    }
+
+    private var appleButton: some View {
+        SignInWithAppleButton(.signIn) { request in
+            request.requestedScopes = [.fullName, .email]
+            request.nonce = authService.prepareAppleSignIn()
+        } onCompletion: { result in
+            Task { await authService.handleAppleSignIn(result: result) }
+        }
+        .signInWithAppleButtonStyle(.black)
+        .frame(height: 48)
+        .cornerRadius(12)
     }
 
     private var googleButton: some View {

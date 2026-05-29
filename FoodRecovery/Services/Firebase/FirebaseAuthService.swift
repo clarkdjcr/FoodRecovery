@@ -2,6 +2,8 @@
 // Manages Firebase Authentication state throughout the app.
 // Supports email/password, Google Sign-In, and anonymous sign-in.
 
+import AuthenticationServices
+import CryptoKit
 import FirebaseAuth
 import FirebaseFirestore
 import Foundation
@@ -17,6 +19,7 @@ final class FirebaseAuthService: ObservableObject {
 
     private let db = Firestore.firestore()
     private var stateHandle: AuthStateDidChangeListenerHandle?
+    private var currentNonce: String?
 
     init() {
         stateHandle = Auth.auth().addStateDidChangeListener { [weak self] _, user in
@@ -95,6 +98,56 @@ final class FirebaseAuthService: ObservableObject {
             errorMessage = error.localizedDescription
         }
         isLoading = false
+    }
+
+    // MARK: - Apple Sign-In
+    // Split across two methods so SignInWithAppleButton can own the ASAuthorization
+    // presentation while the service owns the Firebase credential exchange.
+
+    // Called in SignInWithAppleButton's onRequest closure. Returns the SHA-256
+    // hashed nonce to embed in the ASAuthorizationAppleIDRequest.
+    func prepareAppleSignIn() -> String {
+        let nonce = randomNonceString()
+        currentNonce = nonce
+        return sha256(nonce)
+    }
+
+    // Called in SignInWithAppleButton's onCompletion closure.
+    func handleAppleSignIn(result: Result<ASAuthorization, Error>) async {
+        isLoading = true
+        errorMessage = nil
+        defer {
+            currentNonce = nil
+            isLoading = false
+        }
+        do {
+            let authorization = try result.get()
+            guard let appleCredential = authorization.credential as? ASAuthorizationAppleIDCredential,
+                  let idTokenData = appleCredential.identityToken,
+                  let idTokenString = String(data: idTokenData, encoding: .utf8),
+                  let rawNonce = currentNonce else {
+                errorMessage = "Apple Sign-In failed: invalid credential."
+                return
+            }
+            let firebaseCredential = OAuthProvider.appleCredential(
+                withIDToken: idTokenString,
+                rawNonce: rawNonce,
+                fullName: appleCredential.fullName
+            )
+            let authResult = try await Auth.auth().signIn(with: firebaseCredential)
+            if userProfile == nil {
+                let name = [appleCredential.fullName?.givenName, appleCredential.fullName?.familyName]
+                    .compactMap { $0 }.joined(separator: " ")
+                await createUserProfile(
+                    uid: authResult.user.uid,
+                    email: authResult.user.email ?? appleCredential.email ?? "",
+                    displayName: name.isEmpty ? "Apple User" : name
+                )
+            }
+            FirebaseAnalyticsService.shared.log(.userSignedIn(method: "apple"))
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 
     // MARK: - Anonymous
@@ -178,6 +231,21 @@ final class FirebaseAuthService: ObservableObject {
         } catch {
             // Profile may not exist yet on first login; silently ignore
         }
+    }
+
+    // MARK: - Nonce helpers (required for Apple Sign-In security)
+
+    private func randomNonceString(length: Int = 32) -> String {
+        var randomBytes = [UInt8](repeating: 0, count: length)
+        _ = SecRandomCopyBytes(kSecRandomDefault, length, &randomBytes)
+        let charset = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
+        return String(randomBytes.map { charset[Int($0) % charset.count] })
+    }
+
+    private func sha256(_ input: String) -> String {
+        SHA256.hash(data: Data(input.utf8))
+            .compactMap { String(format: "%02x", $0) }
+            .joined()
     }
 
     // Wraps GIDSignIn's callback API in async/await and handles iOS vs macOS presentation.

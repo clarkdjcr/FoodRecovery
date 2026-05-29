@@ -85,12 +85,41 @@ class EmailProcessingService {
     func processDonationEmail(subject: String, body: String, fromEmail: String) async throws
         -> EmailProcessingResult
     {
-        let apiKey = AppConfiguration.openAIAPIKey
-        if !apiKey.isEmpty {
-            return try await callOpenAI(subject: subject, body: body, apiKey: apiKey)
+        let provider = AppConfiguration.activeAIProvider
+        let result: EmailProcessingResult
+
+        switch provider {
+        case .openAI:
+            let key = AppConfiguration.openAIAPIKey
+            if !key.isEmpty {
+                result = try await callOpenAI(subject: subject, body: body, apiKey: key)
+            } else {
+                result = intelligentExtraction(subject: subject, body: body)
+            }
+        case .anthropic:
+            let key = AppConfiguration.anthropicAPIKey
+            if !key.isEmpty {
+                result = try await callOpenAI(subject: subject, body: body, apiKey: key)
+            } else {
+                result = intelligentExtraction(subject: subject, body: body)
+            }
+        case .gemini:
+            // Firebase AI (Gemini via Firebase backend) — no direct API key required
+            if let firebaseResult = try? await FirebaseAIService.shared.processDonationEmail(
+                subject: subject, body: body, fromEmail: fromEmail) {
+                result = firebaseResult
+            } else {
+                let key = AppConfiguration.geminiAPIKey
+                result = !key.isEmpty
+                    ? try await callOpenAI(subject: subject, body: body, apiKey: key)
+                    : intelligentExtraction(subject: subject, body: body)
+            }
         }
-        // Fall back to local pattern matching when no API key is configured
-        return intelligentExtraction(subject: subject, body: body)
+
+        FirebaseAnalyticsService.shared.log(
+            .emailProcessed(aiProvider: provider.rawValue, confidence: result.confidence, success: true)
+        )
+        return result
     }
 
     // MARK: - OpenAI

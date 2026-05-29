@@ -20,6 +20,7 @@ struct AuthenticationView: View {
             VStack(spacing: 32) {
                 header
                 formCard
+                googleButton
                 modeToggle
                 Divider().padding(.horizontal)
                 anonymousButton
@@ -122,6 +123,31 @@ struct AuthenticationView: View {
         .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
     }
 
+    private var googleButton: some View {
+        Button(action: {
+            Task { await authService.signInWithGoogle() }
+        }) {
+            HStack(spacing: 12) {
+                GoogleLogoView()
+                    .frame(width: 20, height: 20)
+                Text("Sign in with Google")
+                    .fontWeight(.medium)
+                    .foregroundColor(Color(white: 0.2))
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 48)
+            .background(Color.white)
+            .cornerRadius(12)
+            .shadow(color: .black.opacity(0.12), radius: 4, x: 0, y: 2)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.gray.opacity(0.25), lineWidth: 1)
+            )
+        }
+        .disabled(authService.isLoading)
+        .buttonStyle(PlainButtonStyle())
+    }
+
     private var modeToggle: some View {
         HStack {
             Text(mode == .signIn ? "Don't have an account?" : "Already have an account?")
@@ -210,6 +236,56 @@ private struct AuthSecureField: View {
                         )
                 )
                 .animation(.easeInOut(duration: 0.2), value: isFocused)
+        }
+    }
+}
+
+// MARK: - Google "G" logo drawn with SwiftUI Canvas (no image assets needed)
+
+private struct GoogleLogoView: View {
+    var body: some View {
+        Canvas { ctx, size in
+            let w = size.width
+            let h = size.height
+            let cx = w / 2
+            let cy = h / 2
+            let r = min(w, h) / 2
+
+            // White circle background
+            ctx.fill(Path(ellipseIn: CGRect(x: cx - r, y: cy - r, width: r * 2, height: r * 2)),
+                     with: .color(.white))
+
+            // Draw the four colored arcs that make up the "G"
+            let segments: [(Double, Double, Color)] = [
+                (-.pi / 6,  .pi / 2,   Color(red: 0.26, green: 0.52, blue: 0.96)),  // blue
+                (.pi / 2,   7 * .pi / 6, Color(red: 0.20, green: 0.66, blue: 0.33)), // green
+                (7 * .pi / 6, 5 * .pi / 3, Color(red: 1.00, green: 0.74, blue: 0.02)), // yellow
+                (5 * .pi / 3, 11 * .pi / 6, Color(red: 0.92, green: 0.26, blue: 0.21)), // red
+            ]
+            let ringWidth = r * 0.35
+            for (start, end, color) in segments {
+                var arc = Path()
+                arc.addArc(center: CGPoint(x: cx, y: cy),
+                           radius: r - ringWidth / 2,
+                           startAngle: .radians(start),
+                           endAngle: .radians(end),
+                           clockwise: false)
+                ctx.stroke(arc, with: .color(color), lineWidth: ringWidth)
+            }
+
+            // White cutout for the "G" notch (right side horizontal bar)
+            let barY = cy - ringWidth * 0.4
+            let barH = ringWidth * 0.8
+            let barX = cx
+            let barW = r * 0.9
+            ctx.fill(Path(CGRect(x: barX, y: barY, width: barW, height: barH)),
+                     with: .color(.white))
+
+            // Center white circle (hole)
+            let innerR = r - ringWidth
+            ctx.fill(Path(ellipseIn: CGRect(x: cx - innerR, y: cy - innerR,
+                                            width: innerR * 2, height: innerR * 2)),
+                     with: .color(.white))
         }
     }
 }

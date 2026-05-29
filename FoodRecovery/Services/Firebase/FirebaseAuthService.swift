@@ -1,10 +1,11 @@
 // FirebaseAuthService.swift
 // Manages Firebase Authentication state throughout the app.
-// Supports email/password accounts and anonymous sign-in for quick access.
+// Supports email/password, Google Sign-In, and anonymous sign-in.
 
 import FirebaseAuth
 import FirebaseFirestore
 import Foundation
+import GoogleSignIn
 
 @MainActor
 final class FirebaseAuthService: ObservableObject {
@@ -37,7 +38,7 @@ final class FirebaseAuthService: ObservableObject {
         }
     }
 
-    // MARK: - Auth operations
+    // MARK: - Email / Password
 
     func signIn(email: String, password: String) async {
         isLoading = true
@@ -65,26 +66,63 @@ final class FirebaseAuthService: ObservableObject {
         isLoading = false
     }
 
-    func signInAnonymously() async {
+    // MARK: - Google Sign-In
+
+    func signInWithGoogle() async {
         isLoading = true
         errorMessage = nil
         do {
-            let result = try await Auth.auth().signInAnonymously()
-            let displayName = "Anonymous Operator"
-            await createUserProfile(uid: result.user.uid, email: "", displayName: displayName)
+            let signInResult = try await performGoogleSignIn()
+            guard let idToken = signInResult.user.idToken?.tokenString else {
+                errorMessage = "Google Sign-In failed: missing ID token."
+                isLoading = false
+                return
+            }
+            let credential = GoogleAuthProvider.credential(
+                withIDToken: idToken,
+                accessToken: signInResult.user.accessToken.tokenString
+            )
+            let authResult = try await Auth.auth().signIn(with: credential)
+            if userProfile == nil {
+                await createUserProfile(
+                    uid: authResult.user.uid,
+                    email: authResult.user.email ?? "",
+                    displayName: authResult.user.displayName ?? ""
+                )
+            }
+            FirebaseAnalyticsService.shared.log(.userSignedIn(method: "google"))
         } catch {
             errorMessage = error.localizedDescription
         }
         isLoading = false
     }
 
+    // MARK: - Anonymous
+
+    func signInAnonymously() async {
+        isLoading = true
+        errorMessage = nil
+        do {
+            let result = try await Auth.auth().signInAnonymously()
+            await createUserProfile(uid: result.user.uid, email: "", displayName: "Anonymous Operator")
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isLoading = false
+    }
+
+    // MARK: - Sign out
+
     func signOut() {
+        GIDSignIn.sharedInstance.signOut()
         do {
             try Auth.auth().signOut()
         } catch {
             errorMessage = error.localizedDescription
         }
     }
+
+    // MARK: - Password reset
 
     func sendPasswordReset(email: String) async {
         errorMessage = nil
@@ -95,26 +133,7 @@ final class FirebaseAuthService: ObservableObject {
         }
     }
 
-    // MARK: - User profile
-
-    private func createUserProfile(uid: String, email: String, displayName: String) async {
-        let profile = UserProfileDocument.makeNew(uid: uid, email: email, displayName: displayName)
-        do {
-            try db.collection("users").document(uid).setData(from: profile)
-            userProfile = profile
-        } catch {
-            errorMessage = "Failed to create user profile: \(error.localizedDescription)"
-        }
-    }
-
-    private func fetchUserProfile(uid: String) async {
-        do {
-            let doc = try await db.collection("users").document(uid).getDocument()
-            userProfile = try doc.data(as: UserProfileDocument.self)
-        } catch {
-            // Profile may not exist yet for the first login; silently ignore
-        }
-    }
+    // MARK: - User profile helpers
 
     func linkOperationToUser(operationId: String) async {
         guard let uid = currentUser?.uid else { return }
@@ -138,5 +157,74 @@ final class FirebaseAuthService: ObservableObject {
 
     var userId: String? {
         currentUser?.uid
+    }
+
+    // MARK: - Private
+
+    private func createUserProfile(uid: String, email: String, displayName: String) async {
+        let profile = UserProfileDocument.makeNew(uid: uid, email: email, displayName: displayName)
+        do {
+            try db.collection("users").document(uid).setData(from: profile)
+            userProfile = profile
+        } catch {
+            errorMessage = "Failed to create user profile: \(error.localizedDescription)"
+        }
+    }
+
+    private func fetchUserProfile(uid: String) async {
+        do {
+            let doc = try await db.collection("users").document(uid).getDocument()
+            userProfile = try doc.data(as: UserProfileDocument.self)
+        } catch {
+            // Profile may not exist yet on first login; silently ignore
+        }
+    }
+
+    // Wraps GIDSignIn's callback API in async/await and handles iOS vs macOS presentation.
+    private func performGoogleSignIn() async throws -> GIDSignInResult {
+        try await withCheckedThrowingContinuation { continuation in
+#if os(iOS)
+            guard let root = UIApplication.shared.connectedScenes
+                .compactMap({ $0 as? UIWindowScene })
+                .first?.windows.first?.rootViewController else {
+                continuation.resume(throwing: GoogleSignInError.noPresentingWindow)
+                return
+            }
+            GIDSignIn.sharedInstance.signIn(withPresenting: root) { result, error in
+                if let error { continuation.resume(throwing: error); return }
+                guard let result else {
+                    continuation.resume(throwing: GoogleSignInError.unknownResult); return
+                }
+                continuation.resume(returning: result)
+            }
+#else
+            guard let window = NSApplication.shared.keyWindow
+                              ?? NSApplication.shared.windows.first else {
+                continuation.resume(throwing: GoogleSignInError.noPresentingWindow)
+                return
+            }
+            GIDSignIn.sharedInstance.signIn(withPresenting: window) { result, error in
+                if let error { continuation.resume(throwing: error); return }
+                guard let result else {
+                    continuation.resume(throwing: GoogleSignInError.unknownResult); return
+                }
+                continuation.resume(returning: result)
+            }
+#endif
+        }
+    }
+}
+
+// MARK: - Errors
+
+private enum GoogleSignInError: LocalizedError {
+    case noPresentingWindow
+    case unknownResult
+
+    var errorDescription: String? {
+        switch self {
+        case .noPresentingWindow: return "Cannot find a window to present the Google Sign-In sheet."
+        case .unknownResult: return "Google Sign-In returned an unexpected result."
+        }
     }
 }

@@ -5,6 +5,7 @@
 import FirebaseAppCheck
 import FirebaseCore
 import FirebaseCrashlytics
+import GoogleSignIn
 import SwiftData
 import SwiftUI
 
@@ -79,6 +80,11 @@ struct FoodRecoveryApp: App {
         } else {
             // Fall back to the conventional name if the bundle is set up differently.
             FirebaseApp.configure()
+        }
+
+        // Configure Google Sign-In using the OAuth client ID from Firebase.
+        if let clientID = FirebaseApp.app()?.options.clientID {
+            GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID)
         }
 
         // Crashlytics is active automatically after configure().

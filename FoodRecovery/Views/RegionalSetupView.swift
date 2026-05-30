@@ -355,6 +355,7 @@ struct MapSelectionView: View {
       }
     }
   }
+}
 
 struct MapAnnotation: Identifiable {
   let id = UUID()

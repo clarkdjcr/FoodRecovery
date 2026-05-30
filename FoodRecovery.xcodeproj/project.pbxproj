@@ -21,6 +21,7 @@
 		92C7960E2FC92C2700C9731A /* FirebaseInAppMessaging-Beta in Frameworks */ = {isa = PBXBuildFile; productRef = 92C7960D2FC92C2700C9731A /* FirebaseInAppMessaging-Beta */; };
 		92C796102FC92C2700C9731A /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 92C7960F2FC92C2700C9731A /* FirebaseStorage */; };
 		92C796122FC92C2700C9731A /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 92C796112FC92C2700C9731A /* GoogleSignIn */; };
+		92C796152FC92C2700C9731A /* FirebaseRemoteConfig in Frameworks */ = {isa = PBXBuildFile; productRef = 92C796142FC92C2700C9731A /* FirebaseRemoteConfig */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -54,6 +55,7 @@
 				92C795FE2FC92C2700C9731A /* FirebaseAnalyticsCore in Frameworks */,
 				92C7960E2FC92C2700C9731A /* FirebaseInAppMessaging-Beta in Frameworks */,
 				92C796122FC92C2700C9731A /* GoogleSignIn in Frameworks */,
+				92C796152FC92C2700C9731A /* FirebaseRemoteConfig in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -110,6 +112,7 @@
 				92C7960D2FC92C2700C9731A /* FirebaseInAppMessaging-Beta */,
 				92C7960F2FC92C2700C9731A /* FirebaseStorage */,
 				92C796112FC92C2700C9731A /* GoogleSignIn */,
+				92C796142FC92C2700C9731A /* FirebaseRemoteConfig */,
 			);
 			productName = FoodRecovery;
 			productReference = 927AA2752E72807A00889EE9 /* FoodRecovery.app */;
@@ -481,6 +484,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 92C795F62FC92C2700C9731A /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseStorage;
+		};
+		92C796142FC92C2700C9731A /* FirebaseRemoteConfig */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 92C795F62FC92C2700C9731A /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseRemoteConfig;
 		};
 		92C796112FC92C2700C9731A /* GoogleSignIn */ = {
 			isa = XCSwiftPackageProductDependency;

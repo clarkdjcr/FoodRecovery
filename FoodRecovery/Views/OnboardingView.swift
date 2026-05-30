@@ -23,7 +23,7 @@ struct OnboardingView: View {
         }
         .tabViewStyle(.page)
         .indexViewStyle(.page(backgroundDisplayMode: .always))
-        .background(Color(red: 0.95, green: 0.95, blue: 0.97).ignoresSafeArea())
+        .background(AppTheme.Colors.background.ignoresSafeArea())
         .interactiveDismissDisabled()
         #else
         VStack(spacing: 0) {
@@ -59,7 +59,7 @@ struct OnboardingView: View {
                 .padding(.vertical, 16)
             }
         }
-        .background(Color(red: 0.95, green: 0.95, blue: 0.97).ignoresSafeArea())
+        .background(AppTheme.Colors.background.ignoresSafeArea())
         #endif
     }
 }
@@ -84,7 +84,7 @@ private struct OnboardingWelcomePage: View {
 
                 Text("Turn surplus food into community impact.\nCoordinate pickups, track deliveries, and reduce waste — all in one place.")
                     .font(.body)
-                    .foregroundColor(Color(red: 0.25, green: 0.25, blue: 0.30))
+                    .foregroundColor(AppTheme.Colors.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
             }
@@ -184,7 +184,7 @@ private struct OnboardingGetStartedPage: View {
 
                 Text("Start by setting up your regional operation,\nthen add food banks and food providers.")
                     .font(.body)
-                    .foregroundColor(Color(red: 0.25, green: 0.25, blue: 0.30))
+                    .foregroundColor(AppTheme.Colors.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
             }
@@ -253,7 +253,7 @@ private struct FeatureRow: View {
                     .font(.headline)
                 Text(description)
                     .font(.subheadline)
-                    .foregroundColor(Color(red: 0.25, green: 0.25, blue: 0.30))
+                    .foregroundColor(AppTheme.Colors.textSecondary)
             }
         }
     }
@@ -276,7 +276,7 @@ private struct OnboardingStep: View {
 
             Text(text)
                 .font(.subheadline)
-                .foregroundColor(Color(red: 0.1, green: 0.1, blue: 0.15))
+                .foregroundColor(AppTheme.Colors.textPrimary)
         }
     }
 }

@@ -46,12 +46,12 @@ struct ModernTextField: View {
                 .keyboardType(keyboardType)
 #endif
                 .lineLimit(lineLimit ?? 1...1)
-                .foregroundColor(Color(white: 0.1))
+                .foregroundColor(AppTheme.Colors.textPrimary)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(white: 0.97))
+                        .fill(AppTheme.Colors.fieldBackground)
                         .overlay(
                             RoundedRectangle(cornerRadius: 12)
                                 .stroke(isFocused ? Color.blue : Color.gray.opacity(0.3), lineWidth: isFocused ? 2 : 1)
@@ -99,11 +99,12 @@ struct ModernPicker<SelectionValue: Hashable, Content: View>: View {
                 content
             }
             .pickerStyle(.menu)
+            .foregroundColor(AppTheme.Colors.textPrimary)
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(Color(white: 0.93))
+                    .fill(AppTheme.Colors.fieldBackground)
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
                             .stroke(Color.gray.opacity(0.25), lineWidth: 1)
@@ -227,7 +228,7 @@ struct ModernSectionCard<Content: View>: View {
         .padding(20)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white)
+                .fill(AppTheme.Colors.cardBackground)
                 .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
         )
     }
@@ -370,7 +371,7 @@ struct LocationDisplayCard: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color(white: 0.93))
+                .fill(AppTheme.Colors.fieldBackground)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
                         .stroke(Color.gray.opacity(0.25), lineWidth: 1)

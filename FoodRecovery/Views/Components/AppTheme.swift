@@ -18,21 +18,45 @@ struct AppTheme {
         static let primary = Color.blue
         static let secondary = Color.gray.opacity(0.6)
         static let accent = Color.green
-        static let background = Color(red: 0.95, green: 0.95, blue: 0.97)
-        static let cardBackground = Color.white
         static let destructive = Color.red
         static let warning = Color.orange
         static let success = Color.green
-        
-        // Text colors - explicit colors for better visibility
-        static let textPrimary = Color.black
-        static let textSecondary = Color(red: 0.25, green: 0.25, blue: 0.30)
-        static let textTertiary = Color(red: 0.40, green: 0.40, blue: 0.45)
-        
+
+        // Adaptive backgrounds — correct in both light and dark mode
+        static var background: Color {
+            #if canImport(UIKit)
+            return Color(UIColor.systemGroupedBackground)
+            #else
+            return Color(NSColor.windowBackgroundColor)
+            #endif
+        }
+
+        static var cardBackground: Color {
+            #if canImport(UIKit)
+            return Color(UIColor.systemBackground)
+            #else
+            return Color(NSColor.controlBackgroundColor)
+            #endif
+        }
+
+        static var fieldBackground: Color {
+            #if canImport(UIKit)
+            return Color(UIColor.secondarySystemBackground)
+            #else
+            return Color(NSColor.textBackgroundColor)
+            #endif
+        }
+
+        // Semantic text colors — adapt automatically to light/dark mode
+        static let textPrimary = Color.primary
+        static let textSecondary = Color.secondary
+        static let textTertiary = Color.secondary.opacity(0.75)
+
         // Status colors
         static let proposed = Color.orange
         static let confirmed = Color.blue
-        static let inProgress = Color.yellow
+        // Amber replaces yellow — sufficient contrast on both light and dark backgrounds
+        static let inProgress = Color(red: 0.95, green: 0.65, blue: 0.00)
         static let completed = Color.green
         static let cancelled = Color.red
     }
@@ -126,7 +150,7 @@ extension View {
         self
             .padding(.horizontal, AppTheme.Spacing.lg)
             .padding(.vertical, AppTheme.Spacing.md)
-            .background(Color.gray.opacity(0.1))
+            .background(AppTheme.Colors.fieldBackground)
             .cornerRadius(AppTheme.CornerRadius.md)
     }
     

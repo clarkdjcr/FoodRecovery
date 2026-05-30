@@ -26,6 +26,7 @@ struct FoodProviderRegistrationView: View {
   @State private var showingMap = false
   @State private var showingSuccess = false
   @State private var phoneValidationError: String?
+  @State private var geocodingTask: Task<Void, Never>?
 
 
   var body: some View {
@@ -84,7 +85,20 @@ struct FoodProviderRegistrationView: View {
                 text: $address,
                 icon: "location"
               )
-              
+              .onChange(of: address) { _, newValue in
+                geocodingTask?.cancel()
+                guard !newValue.isEmpty else { return }
+                geocodingTask = Task {
+                  try? await Task.sleep(nanoseconds: 800_000_000)
+                  guard !Task.isCancelled else { return }
+                  let geocoder = CLGeocoder()
+                  if let placemark = try? await geocoder.geocodeAddressString(newValue).first,
+                     let coord = placemark.location?.coordinate {
+                    await MainActor.run { location = coord }
+                  }
+                }
+              }
+
               LocationDisplayCard(
                 latitude: location.latitude,
                 longitude: location.longitude,
@@ -206,7 +220,7 @@ struct FoodProviderRegistrationView: View {
           .padding(.bottom, 20)
         }
       }
-      .background(Color(red: 0.95, green: 0.95, blue: 0.97))
+      .background(AppTheme.Colors.background)
       .sheet(isPresented: $showingMap) {
         MapSelectionView(selectedCoordinate: $location)
       }

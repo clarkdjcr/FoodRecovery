@@ -173,7 +173,7 @@ struct RegionalSetupView: View {
           .padding(.bottom, 20)
         }
       }
-      .background(Color(red: 0.95, green: 0.95, blue: 0.97))
+      .background(AppTheme.Colors.background)
       .sheet(isPresented: $showingMap) {
         MapSelectionView(selectedCoordinate: $regionCenter)
       }
@@ -228,10 +228,15 @@ struct RegionalSetupView: View {
 struct MapSelectionView: View {
   @Binding var selectedCoordinate: CLLocationCoordinate2D
   @Environment(\.dismiss) private var dismiss
-  @State private var region = MKCoordinateRegion(
-    center: CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194),
-    span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
-  )
+  @State private var region: MKCoordinateRegion
+
+  init(selectedCoordinate: Binding<CLLocationCoordinate2D>) {
+    _selectedCoordinate = selectedCoordinate
+    _region = State(initialValue: MKCoordinateRegion(
+      center: selectedCoordinate.wrappedValue,
+      span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
+    ))
+  }
 
   var body: some View {
     // NavigationView {
@@ -253,6 +258,10 @@ struct MapSelectionView: View {
           .onTapGesture { screenCoordinate in
             if let coordinate = proxy.convert(screenCoordinate, from: .local) {
               selectedCoordinate = coordinate
+              region = MKCoordinateRegion(
+                center: coordinate,
+                span: region.span
+              )
             }
           }
         }
@@ -301,17 +310,17 @@ struct MapSelectionView: View {
                 Text("Latitude")
                   .font(.caption)
                   .foregroundColor(AppTheme.Colors.textSecondary)
-                Text(String(format: "%.4f", region.center.latitude))
+                Text(String(format: "%.4f", selectedCoordinate.latitude))
                   .font(.subheadline)
                   .fontWeight(.medium)
                   .foregroundColor(AppTheme.Colors.textPrimary)
               }
-              
+
               VStack(alignment: .leading, spacing: 2) {
                 Text("Longitude")
                   .font(.caption)
                   .foregroundColor(AppTheme.Colors.textSecondary)
-                Text(String(format: "%.4f", region.center.longitude))
+                Text(String(format: "%.4f", selectedCoordinate.longitude))
                   .font(.subheadline)
                   .fontWeight(.medium)
                   .foregroundColor(AppTheme.Colors.textPrimary)
@@ -339,7 +348,6 @@ struct MapSelectionView: View {
         }
         ToolbarItem(placement: .confirmationAction) {
           Button("Select") {
-            selectedCoordinate = region.center
             dismiss()
           }
           .fontWeight(.semibold)

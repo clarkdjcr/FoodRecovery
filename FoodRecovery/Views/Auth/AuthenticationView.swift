@@ -235,12 +235,12 @@ private struct AuthSecureField: View {
             SecureField(placeholder, text: $text)
                 .focused($isFocused)
                 .textFieldStyle(.plain)
-                .foregroundColor(Color(white: 0.1))
+                .foregroundColor(AppTheme.Colors.textPrimary)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(white: 0.97))
+                        .fill(AppTheme.Colors.fieldBackground)
                         .overlay(
                             RoundedRectangle(cornerRadius: 12)
                                 .stroke(

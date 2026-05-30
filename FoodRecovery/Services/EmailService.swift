@@ -228,8 +228,8 @@ private actor SMTPClient {
         try await write(buildRFC2822(from: sender, to: recipients, subject: subject, body: body))
         try await expectCode(250, in: try await readResponse())
 
-        // Quit
-        try await write("QUIT\r\n")
+        // Quit — isComplete: true sends TCP FIN after the command for a graceful close
+        try await write("QUIT\r\n", isComplete: true)
         _ = try? await readResponse()
     }
 
@@ -290,10 +290,10 @@ private actor SMTPClient {
         }
     }
 
-    private func write(_ text: String) async throws {
+    private func write(_ text: String, isComplete: Bool = false) async throws {
         guard let conn = connection else { throw EmailServiceError.sendFailed("No connection") }
         try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
-            conn.send(content: Data(text.utf8), completion: .contentProcessed { error in
+            conn.send(content: Data(text.utf8), contentContext: .defaultMessage, isComplete: isComplete, completion: .contentProcessed { error in
                 if let error { cont.resume(throwing: EmailServiceError.connectionFailed(error)) }
                 else { cont.resume() }
             })

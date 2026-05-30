@@ -557,6 +557,7 @@ struct ScheduleGenerationView: View {
   let date: Date
   let viewModel: RegionalOperationViewModel
   @Environment(\.dismiss) private var dismiss
+  @State private var errorMessage: String?
 
   var body: some View {
     NavigationView {
@@ -576,8 +577,13 @@ struct ScheduleGenerationView: View {
         } else {
           Button("Generate Schedule") {
             Task {
+              viewModel.errorMessage = nil
               await viewModel.generateDailySchedule(for: operation, on: date)
-              dismiss()
+              if let msg = viewModel.errorMessage {
+                errorMessage = msg
+              } else {
+                dismiss()
+              }
             }
           }
           .buttonStyle(.borderedProminent)
@@ -594,6 +600,14 @@ struct ScheduleGenerationView: View {
             dismiss()
           }
         }
+      }
+      .alert("Schedule Generation Failed", isPresented: .init(
+        get: { errorMessage != nil },
+        set: { if !$0 { errorMessage = nil } }
+      )) {
+        Button("OK") { errorMessage = nil }
+      } message: {
+        Text(errorMessage ?? "")
       }
     }
   }

@@ -39,17 +39,17 @@ struct AppConfiguration {
     // OpenAI Configuration — key from Keychain, model name from Remote Config (falls back to default)
     static var openAIAPIKey: String { KeychainService.retrieve(forKey: openAIKeyName) ?? "" }
     static let defaultOpenAIModel = "gpt-4o-mini"
-    static var openAIModel: String { RemoteConfigService.shared.openAIModel }
+    @MainActor static var openAIModel: String { RemoteConfigService.shared.openAIModel }
 
     // Anthropic Configuration
     static var anthropicAPIKey: String { KeychainService.retrieve(forKey: anthropicKeyName) ?? "" }
     static let defaultAnthropicModel = "claude-sonnet-4-6"
-    static var anthropicModel: String { RemoteConfigService.shared.anthropicModel }
+    @MainActor static var anthropicModel: String { RemoteConfigService.shared.anthropicModel }
 
     // Google Gemini Configuration — key optional; Firebase AI uses App Check instead
     static var geminiAPIKey: String { KeychainService.retrieve(forKey: geminiKeyName) ?? "" }
     static let defaultGeminiModel = "gemini-2.0-flash"
-    static var geminiModel: String { RemoteConfigService.shared.geminiModel }
+    @MainActor static var geminiModel: String { RemoteConfigService.shared.geminiModel }
 
     // Email Configuration — port 465 = SMTPS (TLS on connect, no STARTTLS needed)
     static let smtpHost = "smtp.gmail.com"

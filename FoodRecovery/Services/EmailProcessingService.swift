@@ -141,8 +141,9 @@ class EmailProcessingService {
             Body: \(body)
             """
 
+        let model = await MainActor.run { AppConfiguration.openAIModel }
         let requestBody = OpenAIRequest(
-            model: AppConfiguration.openAIModel,
+            model: model,
             messages: [OpenAIRequest.Message(role: "user", content: prompt)],
             responseFormat: OpenAIRequest.ResponseFormat(type: "json_object")
         )

@@ -319,22 +319,22 @@ private actor SMTPClient {
     // MARK: - RFC 2822 message builder
 
     private func buildRFC2822(from sender: String, to recipients: [String], subject: String, body: String) -> String {
-        var rfc2822DateString: String {
+        let dateString: String = {
             let f = DateFormatter()
             f.locale = Locale(identifier: "en_US_POSIX")
             f.dateFormat = "EEE, dd MMM yyyy HH:mm:ss Z"
             return f.string(from: Date())
-        }
+        }()
         // Dot-stuffing: lines starting with "." must be escaped to ".."
         let stuffed = body.components(separatedBy: "\n")
             .map { $0.hasPrefix(".") ? "." + $0 : $0 }
             .joined(separator: "\r\n")
 
         return [
-            "Date: \(rfc2822DateString)",
+            "Date: \(dateString)",
             "From: \(sender)",
             "To: \(recipients.joined(separator: ", "))",
-            "Subject: \(subject)",
+            "Subject: \(rfc2047BEncode(subject))",
             "MIME-Version: 1.0",
             "Content-Type: text/plain; charset=UTF-8",
             "Content-Transfer-Encoding: 8bit",
@@ -343,5 +343,27 @@ private actor SMTPClient {
             ".",  // end-of-data marker
             ""
         ].joined(separator: "\r\n")
+    }
+
+    // RFC 2047 B-encoding for non-ASCII header values.
+    // Chunks into ≤45 UTF-8 bytes per encoded-word to stay within the 75-char limit.
+    private func rfc2047BEncode(_ text: String) -> String {
+        guard text.unicodeScalars.contains(where: { $0.value > 127 }) else {
+            return text
+        }
+        let bytes = Array(text.utf8)
+        let maxChunk = 45
+        var words: [String] = []
+        var i = 0
+        while i < bytes.count {
+            var end = min(i + maxChunk, bytes.count)
+            // Step back to a valid UTF-8 sequence boundary
+            while end > i + 1 && (bytes[end - 1] & 0xC0) == 0x80 {
+                end -= 1
+            }
+            words.append("=?UTF-8?B?\(Data(bytes[i..<end]).base64EncodedString())?=")
+            i = end
+        }
+        return words.joined(separator: " ")
     }
 }

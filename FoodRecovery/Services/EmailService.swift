@@ -32,19 +32,10 @@ enum EmailServiceError: LocalizedError {
 final class EmailService {
     private let host: String
     private let port: UInt16
-    private let username: String
-    private let password: String
 
-    init(
-        host: String = AppConfiguration.smtpHost,
-        port: Int = AppConfiguration.smtpPort,
-        username: String = AppConfiguration.smtpUsername,
-        password: String = AppConfiguration.smtpPassword
-    ) {
+    init(host: String = AppConfiguration.smtpHost, port: Int = AppConfiguration.smtpPort) {
         self.host = host
         self.port = UInt16(clamping: port)
-        self.username = username
-        self.password = password
     }
 
     // MARK: - Public send methods
@@ -67,6 +58,8 @@ final class EmailService {
     // MARK: - Private dispatch
 
     private func send(to recipient: String, subject: String, body: String) async throws {
+        let username = AppConfiguration.smtpUsername
+        let password = AppConfiguration.smtpPassword
         guard !username.isEmpty, !password.isEmpty else {
             throw EmailServiceError.missingCredentials
         }

@@ -51,12 +51,11 @@ struct AppConfiguration {
     static let defaultGeminiModel = "gemini-2.0-flash"
     static var geminiModel: String { RemoteConfigService.shared.geminiModel }
 
-    // Email Configuration — host/port are not secrets
+    // Email Configuration — port 465 = SMTPS (TLS on connect, no STARTTLS needed)
     static let smtpHost = "smtp.gmail.com"
-    static let smtpPort = 587
+    static let smtpPort = 465
     static var smtpUsername: String { KeychainService.retrieve(forKey: smtpUsernameKeyName) ?? "" }
     static var smtpPassword: String { KeychainService.retrieve(forKey: smtpPasswordKeyName) ?? "" }
-    static let defaultToEmail = ""
 
     // Route Optimization Configuration
     static let averageSpeedMPH = 30.0

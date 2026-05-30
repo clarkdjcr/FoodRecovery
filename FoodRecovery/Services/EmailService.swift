@@ -1,173 +1,352 @@
-//
-//  EmailService.swift
-//  FoodRecovery
-//
-//  Created by Donald Clark on 9/10/25.
-//
+// EmailService.swift
+// Real SMTP client over port 465 (SMTPS — TLS from connect).
+// Credentials are stored in Keychain via AppConfiguration / KeychainService.
 
 import Foundation
+import Network
 
-class EmailService {
-  private let smtpHost: String
-  private let smtpPort: Int
-  private let username: String
-  private let password: String
+// MARK: - Public errors
 
-  init(smtpHost: String = AppConfiguration.smtpHost, 
-       smtpPort: Int = AppConfiguration.smtpPort, 
-       username: String = AppConfiguration.smtpUsername, 
-       password: String = AppConfiguration.smtpPassword) {
-    self.smtpHost = smtpHost
-    self.smtpPort = smtpPort
-    self.username = username
-    self.password = password
-  }
+enum EmailServiceError: LocalizedError {
+    case missingCredentials
+    case connectionFailed(Error)
+    case authenticationFailed(String)
+    case sendFailed(String)
 
-  func sendPickupConfirmation(to store: FoodProvider, pickup: Pickup) async throws {
-    let subject =
-      "Food Donation Pickup Confirmation - \(pickup.scheduledTime.formatted(date: .abbreviated, time: .shortened))"
-    let body = createPickupConfirmationBody(store: store, pickup: pickup)
+    var errorDescription: String? {
+        switch self {
+        case .missingCredentials:
+            return "Email credentials not configured. Add Gmail address and App Password in Settings."
+        case .connectionFailed(let error):
+            return "Could not connect to mail server: \(error.localizedDescription)"
+        case .authenticationFailed(let detail):
+            return "Mail server rejected credentials: \(detail)"
+        case .sendFailed(let detail):
+            return "Failed to send email: \(detail)"
+        }
+    }
+}
 
-    try await sendEmail(to: store.contactEmail, subject: subject, body: body)
-  }
+// MARK: - EmailService
 
-  func sendDeliveryConfirmation(to foodBank: FoodBank, delivery: Delivery) async throws {
-    let subject =
-      "Food Delivery Confirmation - \(delivery.scheduledTime.formatted(date: .abbreviated, time: .shortened))"
-    let body = createDeliveryConfirmationBody(foodBank: foodBank, delivery: delivery)
+final class EmailService {
+    private let host: String
+    private let port: UInt16
+    private let username: String
+    private let password: String
 
-    try await sendEmail(to: foodBank.contactEmail, subject: subject, body: body)
-  }
+    init(
+        host: String = AppConfiguration.smtpHost,
+        port: Int = AppConfiguration.smtpPort,
+        username: String = AppConfiguration.smtpUsername,
+        password: String = AppConfiguration.smtpPassword
+    ) {
+        self.host = host
+        self.port = UInt16(clamping: port)
+        self.username = username
+        self.password = password
+    }
 
-  func sendRouteConfirmation(to operation: RegionalOperation, route: PickupRoute) async throws {
-    let subject =
-      "Daily Route Confirmation - \(route.date.formatted(date: .abbreviated, time: .omitted))"
-    let body = createRouteConfirmationBody(operation: operation, route: route)
+    // MARK: - Public send methods
 
-    try await sendEmail(to: operation.contactEmail, subject: subject, body: body)
-  }
+    func sendPickupConfirmation(to store: FoodProvider, pickup: Pickup) async throws {
+        let subject = "Food Donation Pickup Confirmation – \(pickup.scheduledTime.formatted(date: .abbreviated, time: .shortened))"
+        try await send(to: store.contactEmail, subject: subject, body: pickupBody(store: store, pickup: pickup))
+    }
 
-  private func createPickupConfirmationBody(store: FoodProvider, pickup: Pickup) -> String {
-    let formatter = DateFormatter()
-    formatter.dateStyle = .full
-    formatter.timeStyle = .short
+    func sendDeliveryConfirmation(to foodBank: FoodBank, delivery: Delivery) async throws {
+        let subject = "Food Delivery Confirmation – \(delivery.scheduledTime.formatted(date: .abbreviated, time: .shortened))"
+        try await send(to: foodBank.contactEmail, subject: subject, body: deliveryBody(foodBank: foodBank, delivery: delivery))
+    }
 
-    let totalQuantity = pickup.totalQuantity
-    let donationList = pickup.donations.map { donation in
-      "• \(donation.foodType.rawValue.capitalized): \(donation.quantity) lbs"
-    }.joined(separator: "\n")
+    func sendRouteConfirmation(to operation: RegionalOperation, route: PickupRoute) async throws {
+        let subject = "Daily Route Confirmation – \(route.date.formatted(date: .abbreviated, time: .omitted))"
+        try await send(to: operation.contactEmail, subject: subject, body: routeBody(operation: operation, route: route))
+    }
 
-    return """
-      Dear \(store.contactName),
+    // MARK: - Private dispatch
 
-      This email confirms your food donation pickup scheduled for:
+    private func send(to recipient: String, subject: String, body: String) async throws {
+        guard !username.isEmpty, !password.isEmpty else {
+            throw EmailServiceError.missingCredentials
+        }
+        let client = SMTPClient(host: host, port: port, username: username, password: password)
+        try await client.send(from: username, to: [recipient], subject: subject, body: body)
+    }
 
-      Date & Time: \(formatter.string(from: pickup.scheduledTime))
-      Location: \(store.name)
-      Address: \(store.address)
+    // MARK: - Email body builders
 
-      Donation Details:
-      \(donationList)
+    private func pickupBody(store: FoodProvider, pickup: Pickup) -> String {
+        let fmt = fullDateFormatter()
+        let items = pickup.donations.map { "  • \($0.foodType.rawValue.capitalized): \($0.quantity) lbs" }.joined(separator: "\n")
+        return """
+        Dear \(store.contactName),
 
-      Total Quantity: \(totalQuantity) lbs
+        This email confirms your food donation pickup scheduled for:
 
-      Please ensure the donations are ready for pickup at the scheduled time. If you need to reschedule or have any questions, please contact us immediately.
+          Date & Time: \(fmt.string(from: pickup.scheduledTime))
+          Location:    \(store.name)
+          Address:     \(store.address)
 
-      Thank you for your generous donation to help reduce food waste in our community!
+        Donation Details:
+        \(items.isEmpty ? "  (no items listed)" : items)
 
-      Best regards,
-      Food Recovery Team
-      """
-  }
+          Total Quantity: \(pickup.totalQuantity) lbs
 
-  private func createDeliveryConfirmationBody(foodBank: FoodBank, delivery: Delivery) -> String {
-    let formatter = DateFormatter()
-    formatter.dateStyle = .full
-    formatter.timeStyle = .short
+        Please ensure the donations are ready at the scheduled time. Contact us immediately if you need to reschedule.
 
-    let totalQuantity = delivery.totalQuantity
-    let donationList = delivery.donations.map { donation in
-      "• \(donation.foodType.rawValue.capitalized): \(donation.quantity) lbs"
-    }.joined(separator: "\n")
+        Thank you for your generous donation!
 
-    return """
-      Dear \(foodBank.contactName),
+        Best regards,
+        Food Recovery Team
+        """
+    }
 
-      This email confirms your food delivery scheduled for:
+    private func deliveryBody(foodBank: FoodBank, delivery: Delivery) -> String {
+        let fmt = fullDateFormatter()
+        let items = delivery.donations.map { "  • \($0.foodType.rawValue.capitalized): \($0.quantity) lbs" }.joined(separator: "\n")
+        return """
+        Dear \(foodBank.contactName),
 
-      Date & Time: \(formatter.string(from: delivery.scheduledTime))
-      Location: \(foodBank.name)
-      Address: \(foodBank.address)
+        This email confirms your food delivery scheduled for:
 
-      Delivery Details:
-      \(donationList)
+          Date & Time: \(fmt.string(from: delivery.scheduledTime))
+          Location:    \(foodBank.name)
+          Address:     \(foodBank.address)
 
-      Total Quantity: \(totalQuantity) lbs
+        Delivery Details:
+        \(items.isEmpty ? "  (no items listed)" : items)
 
-      Please ensure someone is available to receive the delivery at the scheduled time. If you need to reschedule or have any questions, please contact us immediately.
+          Total Quantity: \(delivery.totalQuantity) lbs
 
-      Thank you for your partnership in fighting food insecurity!
+        Please ensure someone is available to receive the delivery. Contact us if you need to reschedule.
 
-      Best regards,
-      Food Recovery Team
-      """
-  }
+        Thank you for your partnership in fighting food insecurity!
 
-  private func createRouteConfirmationBody(operation: RegionalOperation, route: PickupRoute)
-    -> String
-  {
-    let formatter = DateFormatter()
-    formatter.dateStyle = .full
-    formatter.timeStyle = .short
+        Best regards,
+        Food Recovery Team
+        """
+    }
 
-    let pickupList = route.pickups.map { pickup in
-      "• \(pickup.foodProvider?.name ?? pickup.restaurant?.name ?? "Unknown Provider"): \(formatter.string(from: pickup.scheduledTime))"
-    }.joined(separator: "\n")
+    private func routeBody(operation: RegionalOperation, route: PickupRoute) -> String {
+        let fmt = fullDateFormatter()
+        let pickups = route.pickups.map {
+            "  • \($0.foodProvider?.name ?? $0.restaurant?.name ?? "Unknown Provider") – \(fmt.string(from: $0.scheduledTime))"
+        }.joined(separator: "\n")
+        let deliveries = route.deliveries.map {
+            "  • \($0.foodBank?.name ?? "Unknown Food Bank") – \(fmt.string(from: $0.scheduledTime))"
+        }.joined(separator: "\n")
+        return """
+        Daily Route Confirmation – \(fmt.string(from: route.date))
 
-    let deliveryList = route.deliveries.map { delivery in
-      "• \(delivery.foodBank?.name ?? "Unknown Food Bank"): \(formatter.string(from: delivery.scheduledTime))"
-    }.joined(separator: "\n")
+        Route Summary:
+          Start:             \(fmt.string(from: route.startTime))
+          End:               \(fmt.string(from: route.endTime))
+          Total Distance:    \(String(format: "%.1f", route.totalDistance)) miles
+          Estimated Duration:\(String(format: "%.1f", route.estimatedDuration / 3600)) hours
 
-    return """
-      Daily Route Confirmation - \(formatter.string(from: route.date))
+        Pickup Schedule:
+        \(pickups.isEmpty ? "  (none)" : pickups)
 
-      Route Details:
-      Start Time: \(formatter.string(from: route.startTime))
-      End Time: \(formatter.string(from: route.endTime))
-      Total Distance: \(String(format: "%.1f", route.totalDistance)) miles
-      Estimated Duration: \(String(format: "%.1f", route.estimatedDuration / 3600)) hours
+        Delivery Schedule:
+        \(deliveries.isEmpty ? "  (none)" : deliveries)
 
-      Pickup Schedule:
-      \(pickupList)
+          Total Pickup:   \(String(format: "%.1f", route.totalPickupQuantity)) lbs
+          Total Delivery: \(String(format: "%.1f", route.totalDeliveryQuantity)) lbs
 
-      Delivery Schedule:
-      \(deliveryList)
+        Please review and confirm all stops.
 
-      Total Pickup Quantity: \(String(format: "%.1f", route.totalPickupQuantity)) lbs
-      Total Delivery Quantity: \(String(format: "%.1f", route.totalDeliveryQuantity)) lbs
+        Best regards,
+        Food Recovery Team
+        """
+    }
 
-      Please review the schedule and confirm all pickups and deliveries.
+    private func fullDateFormatter() -> DateFormatter {
+        let f = DateFormatter()
+        f.dateStyle = .full
+        f.timeStyle = .short
+        return f
+    }
+}
 
-      Best regards,
-      Food Recovery Team
-      """
-  }
+// MARK: - SMTP client (port 465, TLS on connect)
 
-  private func sendEmail(to recipient: String, subject: String, body: String) async throws {
-    // For demo purposes, override recipient with configured test email
-    let demoRecipient = AppConfiguration.defaultToEmail
-    
-    // In a real implementation, this would use a proper SMTP library
-    // For now, we'll simulate the email sending
-    print("Sending email to: \(demoRecipient) (originally to: \(recipient))")
-    print("From: \(username)")
-    print("Subject: \(subject)")
-    print("Body: \(body)")
+private actor SMTPClient {
+    private let host: String
+    private let port: UInt16
+    private let username: String
+    private let password: String
 
-    // Simulate network delay
-    try await Task.sleep(nanoseconds: 1_000_000_000)  // 1 second
+    private var connection: NWConnection?
+    private var buffer = Data()
 
-    // In a real app, you would implement actual SMTP sending here
-    // using libraries like SwiftSMTP or similar
-  }
+    init(host: String, port: UInt16, username: String, password: String) {
+        self.host = host
+        self.port = port
+        self.username = username
+        self.password = password
+    }
+
+    func send(from sender: String, to recipients: [String], subject: String, body: String) async throws {
+        let conn = NWConnection(
+            host: NWEndpoint.Host(host),
+            port: NWEndpoint.Port(rawValue: port)!,
+            using: NWParameters(tls: .init(), tcp: .init())
+        )
+        connection = conn
+        defer { conn.cancel() }
+
+        try await connect(conn)
+
+        // Greeting
+        try await expectCode(220, in: try await readResponse())
+
+        // EHLO
+        try await write("EHLO localhost\r\n")
+        try await expectCode(250, in: try await readResponse())
+
+        // AUTH LOGIN
+        try await write("AUTH LOGIN\r\n")
+        try await expectCode(334, in: try await readResponse())
+        try await write(Data(username.utf8).base64EncodedString() + "\r\n")
+        try await expectCode(334, in: try await readResponse())
+        try await write(Data(password.utf8).base64EncodedString() + "\r\n")
+        let authResp = try await readResponse()
+        if authResp.code != 235 {
+            throw EmailServiceError.authenticationFailed(authResp.lines.first ?? "code \(authResp.code)")
+        }
+
+        // Envelope
+        try await write("MAIL FROM:<\(sender)>\r\n")
+        try await expectCode(250, in: try await readResponse())
+        for recipient in recipients {
+            try await write("RCPT TO:<\(recipient)>\r\n")
+            try await expectCode(250, in: try await readResponse())
+        }
+
+        // Message
+        try await write("DATA\r\n")
+        try await expectCode(354, in: try await readResponse())
+        try await write(buildRFC2822(from: sender, to: recipients, subject: subject, body: body))
+        try await expectCode(250, in: try await readResponse())
+
+        // Quit
+        try await write("QUIT\r\n")
+        _ = try? await readResponse()
+    }
+
+    // MARK: - Connection
+
+    private func connect(_ conn: NWConnection) async throws {
+        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
+            var finished = false
+            conn.stateUpdateHandler = { state in
+                guard !finished else { return }
+                switch state {
+                case .ready:
+                    finished = true
+                    cont.resume()
+                case .failed(let error):
+                    finished = true
+                    cont.resume(throwing: EmailServiceError.connectionFailed(error))
+                case .cancelled:
+                    finished = true
+                    cont.resume(throwing: EmailServiceError.sendFailed("Connection cancelled"))
+                default:
+                    break
+                }
+            }
+            conn.start(queue: .global(qos: .utility))
+        }
+    }
+
+    // MARK: - Protocol helpers
+
+    private struct SMTPResponse {
+        let code: Int
+        let lines: [String]
+    }
+
+    /// Reads a complete SMTP response, including any continuation lines (250-...).
+    private func readResponse() async throws -> SMTPResponse {
+        var lines: [String] = []
+        var code = 0
+        while true {
+            let raw = try await readLine()
+            guard raw.count >= 3, let lineCode = Int(raw.prefix(3)) else {
+                throw EmailServiceError.sendFailed("Malformed SMTP response: \(raw)")
+            }
+            code = lineCode
+            let text = raw.count > 4 ? String(raw.dropFirst(4)) : ""
+            lines.append(text)
+            // A space after the code signals the last line; a dash means more follow.
+            let separator: Character = raw.count > 3 ? raw[raw.index(raw.startIndex, offsetBy: 3)] : " "
+            if separator == " " { break }
+        }
+        return SMTPResponse(code: code, lines: lines)
+    }
+
+    private func expectCode(_ expected: Int, in response: SMTPResponse) throws {
+        guard response.code == expected else {
+            throw EmailServiceError.sendFailed("Expected \(expected), got \(response.code): \(response.lines.joined(separator: "; "))")
+        }
+    }
+
+    private func write(_ text: String) async throws {
+        guard let conn = connection else { throw EmailServiceError.sendFailed("No connection") }
+        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
+            conn.send(content: Data(text.utf8), completion: .contentProcessed { error in
+                if let error { cont.resume(throwing: EmailServiceError.connectionFailed(error)) }
+                else { cont.resume() }
+            })
+        }
+    }
+
+    private func readLine() async throws -> String {
+        while true {
+            if let range = buffer.range(of: Data("\r\n".utf8)) {
+                let lineData = buffer[buffer.startIndex..<range.lowerBound]
+                buffer.removeSubrange(buffer.startIndex...range.upperBound - 1)
+                return String(data: lineData, encoding: .utf8) ?? ""
+            }
+            guard let conn = connection else { throw EmailServiceError.sendFailed("No connection") }
+            let chunk: Data = try await withCheckedThrowingContinuation { cont in
+                conn.receive(minimumIncompleteLength: 1, maximumLength: 65_536) { data, _, isComplete, error in
+                    if let error { cont.resume(throwing: EmailServiceError.connectionFailed(error)) }
+                    else if let data, !data.isEmpty { cont.resume(returning: data) }
+                    else { cont.resume(throwing: EmailServiceError.sendFailed("Connection closed unexpectedly")) }
+                }
+            }
+            buffer.append(chunk)
+        }
+    }
+
+    // MARK: - RFC 2822 message builder
+
+    private func buildRFC2822(from sender: String, to recipients: [String], subject: String, body: String) -> String {
+        var rfc2822DateString: String {
+            let f = DateFormatter()
+            f.locale = Locale(identifier: "en_US_POSIX")
+            f.dateFormat = "EEE, dd MMM yyyy HH:mm:ss Z"
+            return f.string(from: Date())
+        }
+        // Dot-stuffing: lines starting with "." must be escaped to ".."
+        let stuffed = body.components(separatedBy: "\n")
+            .map { $0.hasPrefix(".") ? "." + $0 : $0 }
+            .joined(separator: "\r\n")
+
+        return [
+            "Date: \(rfc2822DateString)",
+            "From: \(sender)",
+            "To: \(recipients.joined(separator: ", "))",
+            "Subject: \(subject)",
+            "MIME-Version: 1.0",
+            "Content-Type: text/plain; charset=UTF-8",
+            "Content-Transfer-Encoding: 8bit",
+            "",
+            stuffed,
+            ".",  // end-of-data marker
+            ""
+        ].joined(separator: "\r\n")
+    }
 }

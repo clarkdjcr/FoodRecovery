@@ -58,6 +58,9 @@ final class EmailService {
     // MARK: - Private dispatch
 
     private func send(to recipient: String, subject: String, body: String) async throws {
+        guard !recipient.isEmpty, recipient.contains("@") else {
+            throw EmailServiceError.sendFailed("Invalid recipient address: \(recipient.isEmpty ? "(empty)" : recipient)")
+        }
         let username = AppConfiguration.smtpUsername
         let password = AppConfiguration.smtpPassword
         guard !username.isEmpty, !password.isEmpty else {

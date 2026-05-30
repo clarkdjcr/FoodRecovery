@@ -181,10 +181,12 @@ private actor SMTPClient {
     }
 
     func send(from sender: String, to recipients: [String], subject: String, body: String) async throws {
+        let tcp = NWProtocolTCP.Options()
+        tcp.connectionTimeout = 30
         let conn = NWConnection(
             host: NWEndpoint.Host(host),
             port: NWEndpoint.Port(rawValue: port)!,
-            using: NWParameters(tls: .init(), tcp: .init())
+            using: NWParameters(tls: .init(), tcp: tcp)
         )
         connection = conn
         defer { conn.cancel() }

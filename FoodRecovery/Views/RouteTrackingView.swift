@@ -462,7 +462,7 @@ struct DriverControlPanel: View {
             return
         }
 
-        let url = URL(string: "http://maps.apple.com/?daddr=\(lat),\(lon)&dirflg=d")!
+        guard let url = URL(string: "https://maps.apple.com/?daddr=\(lat),\(lon)&dirflg=d") else { return }
         #if canImport(UIKit)
         if UIApplication.shared.canOpenURL(url) {
             UIApplication.shared.open(url)

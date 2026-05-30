@@ -239,7 +239,7 @@ struct MapSelectionView: View {
   }
 
   var body: some View {
-    // NavigationView {
+    NavigationStack {
       ZStack {
         MapReader { proxy in
           Map(position: .constant(.region(region))) {

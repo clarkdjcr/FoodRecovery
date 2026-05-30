@@ -25,166 +25,165 @@ struct RegionalSetupView: View {
 
 
   var body: some View {
-    // NavigationView {
-      ScrollView {
-        LazyVStack(spacing: 20) {
-          // Header
-          VStack(alignment: .leading, spacing: 12) {
-            Text("Regional Setup")
-              .font(.largeTitle)
-              .fontWeight(.bold)
-              .foregroundColor(AppTheme.Colors.textPrimary)
-            Text("Create a new regional food recovery operation to coordinate donations and deliveries in your area")
-              .font(.subheadline)
-              .foregroundColor(AppTheme.Colors.textSecondary)
-            
-            // Progress indicator
-            OnboardingProgressView(
-              currentStep: 0,
-              totalSteps: 3,
-              stepTitles: ["Operation Details", "Configure Region", "Set Schedule"]
+    ScrollView {
+      LazyVStack(spacing: 20) {
+        // Header
+        VStack(alignment: .leading, spacing: 12) {
+          Text("Regional Setup")
+            .font(.largeTitle)
+            .fontWeight(.bold)
+            .foregroundColor(AppTheme.Colors.textPrimary)
+          Text("Create a new regional food recovery operation to coordinate donations and deliveries in your area")
+            .font(.subheadline)
+            .foregroundColor(AppTheme.Colors.textSecondary)
+
+          // Progress indicator
+          OnboardingProgressView(
+            currentStep: 0,
+            totalSteps: 3,
+            stepTitles: ["Operation Details", "Configure Region", "Set Schedule"]
+          )
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal)
+
+        // Operation Details
+        ModernSectionCard(
+          "Operation Details",
+          subtitle: "Basic information about your regional operation",
+          icon: "building.2.fill"
+        ) {
+          VStack(spacing: 16) {
+            ModernTextField(
+              title: "Operation Name",
+              placeholder: "e.g., Bay Area Food Recovery",
+              text: $name,
+              icon: "building.2"
+            )
+
+            ModernTextField(
+              title: "Contact Email",
+              placeholder: "coordinator@foodrecovery.org",
+              text: $contactEmail,
+              icon: "envelope"
+            )
+
+            ModernTextField(
+              title: "Contact Phone",
+              placeholder: "(555) 123-4567",
+              text: $contactPhone,
+              icon: "phone"
             )
           }
-          .frame(maxWidth: .infinity, alignment: .leading)
-          .padding(.horizontal)
-          
-          // Operation Details
-          ModernSectionCard(
-            "Operation Details",
-            subtitle: "Basic information about your regional operation",
-            icon: "building.2.fill"
-          ) {
-            VStack(spacing: 16) {
-              ModernTextField(
-                title: "Operation Name",
-                placeholder: "e.g., Bay Area Food Recovery",
-                text: $name,
-                icon: "building.2"
-              )
-              
-              ModernTextField(
-                title: "Contact Email",
-                placeholder: "coordinator@foodrecovery.org",
-                text: $contactEmail,
-                icon: "envelope",
-              )
-              
-              ModernTextField(
-                title: "Contact Phone",
-                placeholder: "(555) 123-4567",
-                text: $contactPhone,
-                icon: "phone",
-              )
-            }
-          }
-          .padding(.horizontal)
-          
-          // Regional Configuration
-          ModernSectionCard(
-            "Regional Configuration",
-            subtitle: "Define the geographic scope of your operation",
-            icon: "map.fill"
-          ) {
-            VStack(spacing: 20) {
-              LocationDisplayCard(
-                latitude: regionCenter.latitude,
-                longitude: regionCenter.longitude,
-                onSelectLocation: { showingMap = true }
-              )
-              
-              ModernSlider(
-                "Service Radius",
-                value: $radiusMiles,
-                in: 10...50,
-                step: 5,
-                icon: "circle.dotted",
-                unit: "miles",
-                formatter: radiusFormatter
-              )
-              
-              VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                  Text("Coverage Area")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundColor(AppTheme.Colors.textPrimary)
-                  Spacer()
-                  Text("~\(Int(3.14159 * radiusMiles * radiusMiles)) sq miles")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.blue)
-                }
-                
-                Text("This radius determines which stores and food banks can participate in your operation.")
-                  .font(.caption)
-                  .foregroundColor(AppTheme.Colors.textSecondary)
-              }
-              .padding(.top, 8)
-              
-              ModernSlider(
-                "Maximum Food Banks",
-                value: $maxFoodBanks,
-                in: 1...10,
-                step: 1,
-                icon: "house.fill",
-                formatter: maxFoodBanksFormatter
-              )
-            }
-          }
-          .padding(.horizontal)
-          
-          // Operating Schedule
-          ModernSectionCard(
-            "Operating Schedule",
-            subtitle: "When your operation will be active",
-            icon: "clock.fill"
-          ) {
-            VStack(spacing: 16) {
-              ModernTextField(
-                title: "Operating Hours",
-                placeholder: "8:00 AM - 6:00 PM",
-                text: $operationHours,
-                icon: "clock"
-              )
-              
-              HStack(spacing: 12) {
-                Image(systemName: "info.circle.fill")
-                  .foregroundColor(.blue)
+        }
+        .padding(.horizontal)
+
+        // Regional Configuration
+        ModernSectionCard(
+          "Regional Configuration",
+          subtitle: "Define the geographic scope of your operation",
+          icon: "map.fill"
+        ) {
+          VStack(spacing: 20) {
+            LocationDisplayCard(
+              latitude: regionCenter.latitude,
+              longitude: regionCenter.longitude,
+              onSelectLocation: { showingMap = true }
+            )
+
+            ModernSlider(
+              "Service Radius",
+              value: $radiusMiles,
+              in: 10...50,
+              step: 5,
+              icon: "circle.dotted",
+              unit: "miles",
+              formatter: radiusFormatter
+            )
+
+            VStack(alignment: .leading, spacing: 8) {
+              HStack {
+                Text("Coverage Area")
                   .font(.subheadline)
-                
-                Text("Pickups and deliveries will be scheduled within these hours.")
-                  .font(.caption)
-                  .foregroundColor(AppTheme.Colors.textSecondary)
-                  .multilineTextAlignment(.leading)
+                  .fontWeight(.medium)
+                  .foregroundColor(AppTheme.Colors.textPrimary)
+                Spacer()
+                Text("~\(Int(3.14159 * radiusMiles * radiusMiles)) sq miles")
+                  .font(.subheadline)
+                  .fontWeight(.semibold)
+                  .foregroundColor(.blue)
               }
+
+              Text("This radius determines which stores and food banks can participate in your operation.")
+                .font(.caption)
+                .foregroundColor(AppTheme.Colors.textSecondary)
+            }
+            .padding(.top, 8)
+
+            ModernSlider(
+              "Maximum Food Banks",
+              value: $maxFoodBanks,
+              in: 1...10,
+              step: 1,
+              icon: "house.fill",
+              formatter: maxFoodBanksFormatter
+            )
+          }
+        }
+        .padding(.horizontal)
+
+        // Operating Schedule
+        ModernSectionCard(
+          "Operating Schedule",
+          subtitle: "When your operation will be active",
+          icon: "clock.fill"
+        ) {
+          VStack(spacing: 16) {
+            ModernTextField(
+              title: "Operating Hours",
+              placeholder: "8:00 AM - 6:00 PM",
+              text: $operationHours,
+              icon: "clock"
+            )
+
+            HStack(spacing: 12) {
+              Image(systemName: "info.circle.fill")
+                .foregroundColor(.blue)
+                .font(.subheadline)
+
+              Text("Pickups and deliveries will be scheduled within these hours.")
+                .font(.caption)
+                .foregroundColor(AppTheme.Colors.textSecondary)
+                .multilineTextAlignment(.leading)
             }
           }
-          .padding(.horizontal)
-          
-          // Submit Button
-          ModernButton(
-            title: "Create Operation",
-            action: createOperation,
-            style: .primary,
-            icon: "plus.circle.fill",
-            isEnabled: isFormValid
-          )
-          .padding(.horizontal)
-          .padding(.bottom, 20)
         }
-      }
-      .background(AppTheme.Colors.background)
-      .sheet(isPresented: $showingMap) {
-        MapSelectionView(selectedCoordinate: $regionCenter)
-      }
-      .alert("Operation Created Successfully!", isPresented: $showingSuccess) {
-        Button("OK") {
-          resetForm()
-        }
-      } message: {
-        Text("\(name) has been created and is ready to coordinate food recovery in your region!")
+        .padding(.horizontal)
+
+        // Submit Button
+        ModernButton(
+          title: "Create Operation",
+          action: createOperation,
+          style: .primary,
+          icon: "plus.circle.fill",
+          isEnabled: isFormValid
+        )
+        .padding(.horizontal)
+        .padding(.bottom, 20)
       }
     }
+    .background(AppTheme.Colors.background)
+    .sheet(isPresented: $showingMap) {
+      MapSelectionView(selectedCoordinate: $regionCenter)
+    }
+    .alert("Operation Created Successfully!", isPresented: $showingSuccess) {
+      Button("OK") {
+        resetForm()
+      }
+    } message: {
+      Text("\(name) has been created and is ready to coordinate food recovery in your region!")
+    }
+  }
     
     // MARK: - Private Functions
     

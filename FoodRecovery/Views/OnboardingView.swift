@@ -193,7 +193,7 @@ private struct OnboardingGetStartedPage: View {
                 OnboardingStep(number: "1", text: "Regional Setup → create your operation")
                 OnboardingStep(number: "2", text: "Food Banks → register partner organizations")
                 OnboardingStep(number: "3", text: "Food Providers → add donation sources")
-                OnboardingStep(number: "4", text: "Settings → add your OpenAI key for smart email processing")
+                OnboardingStep(number: "4", text: "Settings -> add SMTP credentials for confirmation emails")
             }
             .padding(.horizontal, 32)
 

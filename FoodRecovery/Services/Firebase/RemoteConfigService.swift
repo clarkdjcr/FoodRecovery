@@ -1,11 +1,10 @@
 // RemoteConfigService.swift
 // Fetches non-secret app configuration from Firebase Remote Config.
 //
-// SECURITY MODEL — three tiers:
-//   1. User-provided API keys  → device Keychain (BYOK; never leaves the device)
-//   2. App-level config        → Firebase Remote Config + App Check (this file)
-//   3. App-owned API keys      → Firebase Cloud Functions proxy (keys stored in
-//                                Google Cloud Secret Manager; client never sees them)
+// SECURITY MODEL:
+//   1. Non-secret app config   -> Firebase Remote Config + App Check (this file)
+//   2. App-owned API keys      -> Firebase Secrets / Google Cloud Secret Manager;
+//                                the client never sees provider credentials.
 //
 // Remote Config values are NOT secret — they are cached on-device after fetch.
 // Use them for model names, feature flags, and rate limits, NOT for private keys.

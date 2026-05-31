@@ -13,7 +13,7 @@ A multi-platform SwiftUI app (iOS, macOS, visionOS) that coordinates food waste 
 
 ### Food Donation Workflow
 - Grocery stores and restaurants are onboarded with contact info, location, and donation preferences
-- Incoming donation emails are parsed using intelligent pattern matching (OpenAI-ready) to extract food type, quantity, and expiration dates
+- Incoming donation emails are parsed with Firebase-managed AI, with a local pattern-matching fallback for offline or unavailable AI processing
 - Donations are matched to food banks based on priority needs and available capacity
 
 ### Intelligent Scheduling & Route Optimization
@@ -54,12 +54,12 @@ open FoodRecovery/FoodRecovery.xcodeproj
 ```
 
 ### 2. Configure credentials
-Edit `FoodRecovery/Configuration/AppConfiguration.swift`:
+Provider AI keys are stored server-side in Firebase Secrets / Google Cloud Secret Manager. Do not add OpenAI, Anthropic, or Gemini keys to the iOS app.
+
+In the app's Settings screen, enter SMTP credentials only if you want the app to send confirmation emails directly:
 ```swift
-static let openAIAPIKey = "your-openai-api-key"   // optional — falls back to pattern matching
-static let smtpUsername  = "you@gmail.com"
-static let smtpPassword  = "your-app-specific-password"
-static let defaultToEmail = "you@example.com"
+smtpUsername = "you@gmail.com"
+smtpPassword = "your-app-specific-password"
 ```
 
 ### 3. Build & run
@@ -96,15 +96,16 @@ FoodRecovery/
     └── PhoneValidationService
 ```
 
-**Persistence:** SwiftData with on-disk storage (all models declared in `FoodRecoveryApp.swift`).
+**Persistence:** SwiftData provides the local cache/offline store. Firebase Auth, Firestore, Realtime Database, and Storage provide account identity, cross-device sync, live route updates, proof-photo/receipt storage, analytics, and crash reporting.
 
 ---
 
 ## Privacy
 
-- Location is used only to optimize pickup/delivery routes (`NSLocationWhenInUseUsageDescription`)
-- No location data is transmitted to third parties
-- All data is stored on-device via SwiftData
+- Location is used to optimize pickup/delivery routes and support live route tracking.
+- Operational records, donation emails, business contact details, route status, proof photos, receipts, analytics events, and crash diagnostics may be processed through Firebase services for app functionality.
+- AI provider credentials are stored server-side in Firebase Secrets / Google Cloud Secret Manager and are not stored in the iOS app.
+- SMTP credentials, if entered, are stored locally in the device Keychain.
 - See `FoodRecovery/PrivacyInfo.xcprivacy` for the full privacy manifest
 
 ---

@@ -17,65 +17,20 @@ struct EmailProcessingResult {
 }
 
 enum EmailProcessingError: LocalizedError {
-    case noAPIKey
     case networkError(Error)
     case invalidResponse(Int)
     case parseError
 
     var errorDescription: String? {
         switch self {
-        case .noAPIKey:
-            return "OpenAI API key not configured. Add it in Settings."
         case .networkError(let error):
             return "Network error: \(error.localizedDescription)"
         case .invalidResponse(let code):
-            return "OpenAI returned HTTP \(code). Check your API key."
+            return "AI processing returned HTTP \(code)."
         case .parseError:
-            return "Could not parse OpenAI response."
+            return "Could not parse AI processing response."
         }
     }
-}
-
-// MARK: - OpenAI Codable types
-
-private struct OpenAIRequest: Encodable {
-    let model: String
-    let messages: [Message]
-    let responseFormat: ResponseFormat
-
-    struct Message: Encodable {
-        let role: String
-        let content: String
-    }
-
-    struct ResponseFormat: Encodable {
-        let type: String
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case model, messages
-        case responseFormat = "response_format"
-    }
-}
-
-private struct OpenAIResponse: Decodable {
-    let choices: [Choice]
-
-    struct Choice: Decodable {
-        let message: Message
-    }
-
-    struct Message: Decodable {
-        let content: String
-    }
-}
-
-private struct ExtractedDonation: Decodable {
-    let foodType: String
-    let quantity: Double
-    let expirationDate: String?
-    let foodDescription: String
-    let confidence: Double
 }
 
 // MARK: -
@@ -86,35 +41,11 @@ class EmailProcessingService {
         -> EmailProcessingResult
     {
         let provider = AppConfiguration.activeAIProvider
-        let result: EmailProcessingResult
-
-        switch provider {
-        case .openAI:
-            let key = AppConfiguration.openAIAPIKey
-            if !key.isEmpty {
-                result = try await callOpenAI(subject: subject, body: body, apiKey: key)
-            } else {
-                result = intelligentExtraction(subject: subject, body: body)
-            }
-        case .anthropic:
-            let key = AppConfiguration.anthropicAPIKey
-            if !key.isEmpty {
-                result = try await callOpenAI(subject: subject, body: body, apiKey: key)
-            } else {
-                result = intelligentExtraction(subject: subject, body: body)
-            }
-        case .gemini:
-            // Firebase AI (Gemini via Firebase backend) — no direct API key required
-            if let firebaseResult = try? await FirebaseAIService.shared.processDonationEmail(
-                subject: subject, body: body, fromEmail: fromEmail) {
-                result = firebaseResult
-            } else {
-                let key = AppConfiguration.geminiAPIKey
-                result = !key.isEmpty
-                    ? try await callOpenAI(subject: subject, body: body, apiKey: key)
-                    : intelligentExtraction(subject: subject, body: body)
-            }
-        }
+        let result = try await processWithFirebaseOrLocalFallback(
+            subject: subject,
+            body: body,
+            fromEmail: fromEmail
+        )
 
         FirebaseAnalyticsService.shared.log(
             .emailProcessed(aiProvider: provider.rawValue, confidence: result.confidence, success: true)
@@ -122,89 +53,22 @@ class EmailProcessingService {
         return result
     }
 
-    // MARK: - OpenAI
+    // MARK: - Firebase AI with local fallback
 
-    private func callOpenAI(subject: String, body: String, apiKey: String) async throws
-        -> EmailProcessingResult
-    {
-        let prompt = """
-            Extract food donation details from this email and respond with a JSON object only — no markdown, no explanation.
-
-            Required fields:
-            - foodType: one of "produce", "dairy", "meat", "bakery", "frozen", "canned", "prepared", "other"
-            - quantity: estimated weight in pounds as a number
-            - expirationDate: ISO 8601 date string (YYYY-MM-DD) or null if not mentioned
-            - foodDescription: a concise description of the donated items (one sentence)
-            - confidence: your extraction confidence from 0.0 to 1.0
-
-            Subject: \(subject)
-            Body: \(body)
-            """
-
-        let model = await MainActor.run { AppConfiguration.openAIModel }
-        let requestBody = OpenAIRequest(
-            model: model,
-            messages: [OpenAIRequest.Message(role: "user", content: prompt)],
-            responseFormat: OpenAIRequest.ResponseFormat(type: "json_object")
-        )
-
-        guard let url = URL(string: "https://api.openai.com/v1/chat/completions") else {
-            throw EmailProcessingError.parseError
-        }
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(requestBody)
-
-        let (data, response): (Data, URLResponse)
-        do {
-            (data, response) = try await URLSession.shared.data(for: request)
-        } catch {
-            throw EmailProcessingError.networkError(error)
+    private func processWithFirebaseOrLocalFallback(
+        subject: String,
+        body: String,
+        fromEmail: String
+    ) async throws -> EmailProcessingResult {
+        if let firebaseResult = try? await FirebaseAIService.shared.processDonationEmail(
+            subject: subject,
+            body: body,
+            fromEmail: fromEmail
+        ) {
+            return firebaseResult
         }
 
-        if let http = response as? HTTPURLResponse, http.statusCode != 200 {
-            throw EmailProcessingError.invalidResponse(http.statusCode)
-        }
-
-        let openAIResponse: OpenAIResponse
-        do {
-            openAIResponse = try JSONDecoder().decode(OpenAIResponse.self, from: data)
-        } catch {
-            throw EmailProcessingError.parseError
-        }
-
-        guard let contentData = openAIResponse.choices.first?.message.content.data(using: .utf8)
-        else {
-            throw EmailProcessingError.parseError
-        }
-
-        let extracted: ExtractedDonation
-        do {
-            extracted = try JSONDecoder().decode(ExtractedDonation.self, from: contentData)
-        } catch {
-            throw EmailProcessingError.parseError
-        }
-
-        var expirationDate: Date? = nil
-        if let dateString = extracted.expirationDate {
-            expirationDate = ISO8601DateFormatter().date(from: dateString)
-            if expirationDate == nil {
-                // Try YYYY-MM-DD without time component
-                let formatter = DateFormatter()
-                formatter.dateFormat = "yyyy-MM-dd"
-                expirationDate = formatter.date(from: dateString)
-            }
-        }
-
-        return EmailProcessingResult(
-            foodType: FoodType(rawValue: extracted.foodType) ?? .other,
-            quantity: max(extracted.quantity, 0),
-            expirationDate: expirationDate,
-            foodDescription: extracted.foodDescription,
-            confidence: min(max(extracted.confidence, 0), 1)
-        )
+        return intelligentExtraction(subject: subject, body: body)
     }
 
     // MARK: - Local pattern matching fallback

@@ -22,7 +22,7 @@ A comprehensive regional food waste reduction platform with AI-powered email pro
 - Integration with AI email processing
 
 ### 🤖 AI-Powered Email Processing
-- OpenAI integration for extracting food donation details
+- Firebase-managed AI for extracting food donation details, with local pattern matching as a fallback
 - Automatic extraction of:
   - Food type (produce, dairy, meat, bakery, frozen, canned, prepared, other)
   - Quantity in pounds
@@ -74,7 +74,7 @@ A comprehensive regional food waste reduction platform with AI-powered email pro
 - **PickupRoute**: Route optimization and management
 
 ### Services
-- **EmailProcessingService**: OpenAI integration for email parsing
+- **EmailProcessingService**: Firebase-managed AI and local fallback for email parsing
 - **RouteOptimizationService**: Dynamic route optimization algorithms
 - **SchedulingService**: Intelligent scheduling and time management
 - **EmailService**: Automated email notifications and confirmations
@@ -88,26 +88,18 @@ A comprehensive regional food waste reduction platform with AI-powered email pro
 
 ## Setup Instructions
 
-### 1. API Configuration
-Update `AppConfiguration.swift` with your API keys:
-```swift
-static let openAIAPIKey = "your-openai-api-key-here"
-static let smtpUsername = "your-email@gmail.com"
-static let smtpPassword = "your-app-password"
-```
+### 1. Firebase AI Setup
+1. Store provider credentials server-side in Firebase Secrets / Google Cloud Secret Manager
+2. Use Firebase Remote Config only for non-secret model names, feature flags, and rate limits
+3. Do not add OpenAI, Anthropic, or Gemini keys to the iOS app
 
-### 2. OpenAI Setup
-1. Get an OpenAI API key from https://platform.openai.com/
-2. Update the API key in `AppConfiguration.swift`
-3. Ensure you have sufficient credits for API usage
-
-### 3. Email Setup
+### 2. Email Setup
 1. Configure SMTP settings for email notifications
 2. Use app-specific passwords for Gmail
 3. Test email functionality before production use
 
-### 4. Database Setup
-The app uses SwiftData for local storage. No additional setup required.
+### 3. Database Setup
+The app uses SwiftData for local caching and Firebase for account-backed sync, live route updates, proof-photo/receipt storage, analytics, and crash reporting.
 
 ## Usage Workflow
 

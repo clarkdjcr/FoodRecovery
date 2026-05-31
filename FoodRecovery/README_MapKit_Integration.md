@@ -88,8 +88,8 @@ The system works with your existing SwiftData models:
 
 ### Privacy
 - Location access is requested only when needed
-- All location data remains on-device unless explicitly shared
-- Privacy manifest declares location usage for App Store compliance
+- Active route location may sync through Firebase Realtime Database for app functionality
+- Privacy manifest declares location and related operational data usage for App Store compliance
 
 ### Future Enhancements
 - Background location tracking for active routes

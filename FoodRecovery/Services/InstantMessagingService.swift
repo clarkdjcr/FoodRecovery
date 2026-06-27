@@ -76,6 +76,42 @@ class InstantMessagingService: NSObject, ObservableObject {
         sendSMS(to: phoneNumber, message: message)
     }
     
+    func composeBulkSMS(to phoneNumbers: [String], message: String) {
+        let valid = phoneNumbers
+            .filter { PhoneValidationService.isValidPhoneNumber($0) }
+            .map { PhoneValidationService.cleanPhoneNumber($0) }
+        guard !valid.isEmpty else { return }
+
+        #if canImport(MessageUI)
+        guard MFMessageComposeViewController.canSendText() else { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            let vc = MFMessageComposeViewController()
+            vc.messageComposeDelegate = self
+            vc.recipients = valid
+            vc.body = message
+            #if canImport(UIKit)
+            if let topVC = UIApplication.shared.connectedScenes
+                .compactMap({ $0 as? UIWindowScene })
+                .flatMap({ $0.windows })
+                .first(where: { $0.isKeyWindow })?
+                .rootViewController?
+                .topmostPresented() {
+                topVC.present(vc, animated: true)
+            }
+            #endif
+        }
+        #else
+        let numbers = valid.joined(separator: ";")
+        let encoded = message.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        if let url = URL(string: "sms:\(numbers)?&body=\(encoded)") {
+            #if canImport(UIKit)
+            UIApplication.shared.open(url)
+            #endif
+        }
+        #endif
+    }
+
     func sendDeliveryComplete(to phoneNumber: String, deliveryDetails: String) {
         guard PhoneValidationService.isValidPhoneNumber(phoneNumber) else {
             print("Invalid phone number: \(phoneNumber)")
@@ -162,6 +198,16 @@ class InstantMessagingService: NSObject, ObservableObject {
         sendSMS(to: phoneNumber, message: message)
     }
 }
+
+// MARK: - UIViewController helper
+
+#if canImport(UIKit)
+private extension UIViewController {
+    func topmostPresented() -> UIViewController {
+        presentedViewController?.topmostPresented() ?? self
+    }
+}
+#endif
 
 // MARK: - MFMessageComposeViewControllerDelegate
 

@@ -20,6 +20,7 @@ struct RouteTrackingView: View {
     @State private var routes: [MKRoute] = []
     @State private var isCalculatingRoute = false
     @State private var capturedPhotoData: Data?
+    @State private var showingCompletionSurvey = false
 
     var body: some View {
         VStack {
@@ -88,6 +89,9 @@ struct RouteTrackingView: View {
             locationManager.requestLocationPermission()
             await calculateOptimizedRoute()
         }
+        .sheet(isPresented: $showingCompletionSurvey) {
+            RouteCompletionSurveySheet(route: pickupRoute)
+        }
     }
 
     // MARK: - Private
@@ -122,6 +126,7 @@ struct RouteTrackingView: View {
         if pickupRoute.currentStopIndex >= allStops.count {
             pickupRoute.status = .completed
             pickupRoute.completedAt = Date()
+            showingCompletionSurvey = true
         }
 
         try? modelContext.save()
@@ -539,6 +544,95 @@ struct DriverControlPanel: View {
         #elseif canImport(AppKit)
         NSWorkspace.shared.open(url)
         #endif
+    }
+}
+
+// MARK: - Route Completion Survey
+
+private struct RouteCompletionSurveySheet: View {
+    let route: PickupRoute
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var rating = 0
+    @State private var selectedIssues: Set<String> = []
+    @State private var notes = ""
+
+    private let issues = [
+        "All stops went smoothly",
+        "Traffic or navigation issues",
+        "Pickup not ready on arrival",
+        "Food bank unavailable or delayed",
+        "Communication issues with contacts",
+        "Weather-related delays",
+    ]
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("How did the route go?") {
+                    HStack(spacing: 4) {
+                        ForEach(1...5, id: \.self) { star in
+                            Image(systemName: star <= rating ? "star.fill" : "star")
+                                .font(.title)
+                                .foregroundColor(star <= rating ? .yellow : .secondary)
+                                .onTapGesture { rating = star }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .listRowBackground(Color.clear)
+                }
+
+                Section("What happened? (select all that apply)") {
+                    ForEach(issues, id: \.self) { issue in
+                        Button {
+                            if selectedIssues.contains(issue) {
+                                selectedIssues.remove(issue)
+                            } else {
+                                selectedIssues.insert(issue)
+                            }
+                        } label: {
+                            HStack {
+                                Image(systemName: selectedIssues.contains(issue) ? "checkmark.circle.fill" : "circle")
+                                    .foregroundColor(selectedIssues.contains(issue) ? .blue : .secondary)
+                                Text(issue)
+                                    .foregroundColor(.primary)
+                                Spacer()
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                Section("Additional notes (optional)") {
+                    TextField("Any other feedback…", text: $notes, axis: .vertical)
+                        .lineLimit(3...6)
+                }
+            }
+            .navigationTitle("Route Feedback")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Skip") { dismiss() }
+                        .foregroundColor(.secondary)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Submit") { submitFeedback() }
+                        .disabled(rating == 0)
+                        .fontWeight(.semibold)
+                }
+            }
+        }
+    }
+
+    private func submitFeedback() {
+        route.feedbackRating = rating
+        route.feedbackIssues = Array(selectedIssues)
+        route.feedbackNotes = notes
+        try? modelContext.save()
+        dismiss()
     }
 }
 

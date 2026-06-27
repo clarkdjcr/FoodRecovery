@@ -32,6 +32,11 @@ final class PickupRoute {
   var currentStopIndex: Int = 0
   var vehicleId: String?
 
+  // Post-completion survey
+  var feedbackRating: Int = 0        // 0 = not submitted, 1–5 stars
+  var feedbackIssues: [String] = []
+  var feedbackNotes: String = ""
+
   // Relationships
   @Relationship var regionalOperation: RegionalOperation?
   @Relationship(deleteRule: .cascade) var pickups: [Pickup] = []

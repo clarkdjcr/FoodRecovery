@@ -19,6 +19,7 @@ struct RegionalDashboardView: View {
   @State private var showingAddFoodBank = false
   @State private var showingAddStore = false
   @State private var showingEmailProcessing = false
+  @State private var showingBulkNotification = false
 
 
   var body: some View {
@@ -35,7 +36,8 @@ struct RegionalDashboardView: View {
                 onGenerateSchedule: { showingScheduleGeneration = true },
                 onAddFoodBank: { showingAddFoodBank = true },
                 onAddStore: { showingAddStore = true },
-                onProcessEmails: { showingEmailProcessing = true }
+                onProcessEmails: { showingEmailProcessing = true },
+                onBulkNotify: { showingBulkNotification = true }
               )
 
               // Urgent Alerts
@@ -142,6 +144,11 @@ struct RegionalDashboardView: View {
       .sheet(isPresented: $showingEmailProcessing) {
         EmailProcessingView()
       }
+      .sheet(isPresented: $showingBulkNotification) {
+        if let operation = selectedOperation {
+          BulkNotificationView(operation: operation)
+        }
+      }
       .onAppear {
         viewModel.loadOperations(modelContext: modelContext)
       }
@@ -231,6 +238,7 @@ struct QuickActionsCard: View {
   let onAddFoodBank: () -> Void
   let onAddStore: () -> Void
   let onProcessEmails: () -> Void
+  let onBulkNotify: () -> Void
 
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
@@ -247,6 +255,7 @@ struct QuickActionsCard: View {
         QuickActionButton(title: "Process Emails", icon: "envelope.badge", color: .purple, action: onProcessEmails)
         QuickActionButton(title: "Add Food Bank", icon: "house.badge.plus", color: .green, action: onAddFoodBank)
         QuickActionButton(title: "Add Store", icon: "storefront", color: .orange, action: onAddStore)
+        QuickActionButton(title: "Bulk SMS", icon: "message.badge.filled.fill", color: .teal, action: onBulkNotify)
       }
     }
     .padding()

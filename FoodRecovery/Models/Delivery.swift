@@ -23,6 +23,7 @@ final class Delivery {
   var actualTime: Date?
   var status: DeliveryStatus
   var notes: String
+  var sortOrder: Int = 0
   var createdAt: Date
   var confirmedAt: Date?
   var completedAt: Date?

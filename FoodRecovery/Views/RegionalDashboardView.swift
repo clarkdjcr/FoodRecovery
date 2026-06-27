@@ -8,6 +8,7 @@
 import Charts
 import SwiftData
 import SwiftUI
+import TipKit
 
 struct RegionalDashboardView: View {
   @Environment(\.modelContext) private var modelContext
@@ -29,6 +30,9 @@ struct RegionalDashboardView: View {
             VStack(spacing: 20) {
               // Personalized Greeting with Daily Summary
               GreetingCard(operation: operation, date: selectedDate, operatorName: authService.displayName)
+
+              // This Week Summary
+              WeeklySummaryCard(operation: operation)
 
               // Quick Actions
               QuickActionsCard(
@@ -230,6 +234,95 @@ struct GreetingCard: View {
   }
 }
 
+// MARK: - Weekly Summary Card
+
+struct WeeklySummaryCard: View {
+  let operation: RegionalOperation
+
+  private var weekStart: Date {
+    Calendar.current.date(
+      from: Calendar.current.dateComponents([.yearForWeekOfYear, .weekOfYear], from: Date())
+    ) ?? Date()
+  }
+
+  private var completedRoutesThisWeek: [PickupRoute] {
+    operation.pickupRoutes.filter {
+      $0.status == .completed && ($0.completedAt ?? $0.date) >= weekStart
+    }
+  }
+
+  private var totalLbsThisWeek: Double {
+    completedRoutesThisWeek.reduce(0) { $0 + $1.totalPickupQuantity }
+  }
+
+  private var newPartnersThisWeek: Int {
+    let providers = operation.foodProviders.filter { $0.createdAt >= weekStart }.count
+    let banks = operation.foodBanks.filter { $0.createdAt >= weekStart }.count
+    return providers + banks
+  }
+
+  private var weekLabel: String {
+    let f = DateFormatter()
+    f.dateFormat = "MMM d"
+    let end = Calendar.current.date(byAdding: .day, value: 6, to: weekStart) ?? weekStart
+    return "\(f.string(from: weekStart))–\(f.string(from: end))"
+  }
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      HStack {
+        Image(systemName: "calendar.badge.checkmark")
+          .foregroundColor(.green)
+        Text("This Week")
+          .font(.headline)
+        Spacer()
+        Text(weekLabel)
+          .font(.caption)
+          .foregroundColor(.secondary)
+      }
+
+      LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+        WeekStatCell(value: "\(completedRoutesThisWeek.count)", label: "Routes", icon: "map.fill", color: .blue)
+        WeekStatCell(value: String(format: "%.0f lbs", totalLbsThisWeek), label: "Rescued", icon: "scalemass.fill", color: .green)
+        WeekStatCell(value: String(format: "%.0f lbs", totalLbsThisWeek * 3.5), label: "CO₂ Saved", icon: "leaf.fill", color: .teal)
+        WeekStatCell(value: "\(newPartnersThisWeek)", label: "New Partners", icon: "person.badge.plus", color: .orange)
+      }
+    }
+    .padding()
+    .background(Color.green.opacity(0.06))
+    .cornerRadius(12)
+  }
+}
+
+private struct WeekStatCell: View {
+  let value: String
+  let label: String
+  let icon: String
+  let color: Color
+
+  var body: some View {
+    HStack(spacing: 10) {
+      Image(systemName: icon)
+        .foregroundColor(color)
+        .frame(width: 22)
+      VStack(alignment: .leading, spacing: 2) {
+        Text(value)
+          .font(.headline)
+          .fontWeight(.bold)
+          .lineLimit(1)
+          .minimumScaleFactor(0.8)
+        Text(label)
+          .font(.caption)
+          .foregroundColor(.secondary)
+      }
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .padding(10)
+    .background(color.opacity(0.08))
+    .cornerRadius(8)
+  }
+}
+
 // MARK: - Quick Actions Card
 
 struct QuickActionsCard: View {
@@ -239,6 +332,9 @@ struct QuickActionsCard: View {
   let onAddStore: () -> Void
   let onProcessEmails: () -> Void
   let onBulkNotify: () -> Void
+
+  private let scheduleTip = GenerateScheduleTip()
+  private let bulkTip = BulkSMSTip()
 
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
@@ -252,10 +348,12 @@ struct QuickActionsCard: View {
 
       LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
         QuickActionButton(title: "Generate Schedule", icon: "calendar.badge.plus", color: .blue, action: onGenerateSchedule)
+          .popoverTip(scheduleTip)
         QuickActionButton(title: "Process Emails", icon: "envelope.badge", color: .purple, action: onProcessEmails)
         QuickActionButton(title: "Add Food Bank", icon: "house.badge.plus", color: .green, action: onAddFoodBank)
         QuickActionButton(title: "Add Store", icon: "storefront", color: .orange, action: onAddStore)
         QuickActionButton(title: "Bulk SMS", icon: "message.badge.filled.fill", color: .teal, action: onBulkNotify)
+          .popoverTip(bulkTip)
       }
     }
     .padding()

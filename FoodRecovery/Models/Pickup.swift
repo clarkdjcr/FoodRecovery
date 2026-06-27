@@ -23,6 +23,7 @@ final class Pickup {
   var actualTime: Date?
   var status: PickupStatus
   var notes: String
+  var sortOrder: Int = 0
   var createdAt: Date
   var confirmedAt: Date?
   var completedAt: Date?

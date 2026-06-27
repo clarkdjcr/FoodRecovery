@@ -9,12 +9,15 @@ import CoreLocation
 import MapKit
 import SwiftData
 import SwiftUI
+import TipKit
 
 struct RouteListView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \PickupRoute.date, order: .reverse) private var routes: [PickupRoute]
     @State private var searchText = ""
     @State private var previewingRoute: PickupRoute?
+
+    private let previewTip = RoutePreviewTip()
 
     var filteredRoutes: [PickupRoute] {
         guard !searchText.isEmpty else { return routes }
@@ -37,6 +40,7 @@ struct RouteListView: View {
                     NavigationLink(destination: RouteTrackingView(pickupRoute: route)) {
                         RouteRowView(route: route)
                     }
+                    .popoverTip(previewTip)
                     .contextMenu {
                         Button {
                             previewingRoute = route

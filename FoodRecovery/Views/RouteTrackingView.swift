@@ -10,6 +10,7 @@ import MapKit
 import PhotosUI
 import SwiftData
 import SwiftUI
+import TipKit
 
 struct RouteTrackingView: View {
     let pickupRoute: PickupRoute
@@ -21,6 +22,7 @@ struct RouteTrackingView: View {
     @State private var isCalculatingRoute = false
     @State private var capturedPhotoData: Data?
     @State private var showingCompletionSurvey = false
+    @State private var showingReorder = false
 
     var body: some View {
         VStack {
@@ -77,6 +79,8 @@ struct RouteTrackingView: View {
                 currentStop: currentStop,
                 totalStops: allStops.count,
                 isCalculatingRoute: isCalculatingRoute,
+                timeToNextStop: timeToNextStop,
+                totalTimeRemaining: totalTimeRemaining,
                 capturedPhotoData: $capturedPhotoData,
                 onStartRoute: { startRoute() },
                 onCompleteStop: { photoData in markCurrentStopComplete(with: photoData) },
@@ -92,15 +96,39 @@ struct RouteTrackingView: View {
         .sheet(isPresented: $showingCompletionSurvey) {
             RouteCompletionSurveySheet(route: pickupRoute)
         }
+        .sheet(isPresented: $showingReorder) {
+            StopReorderSheet(route: pickupRoute)
+        }
+        .toolbar {
+            if pickupRoute.status == .planned {
+                ToolbarItem(placement: .primaryAction) {
+                    Button { showingReorder = true } label: {
+                        Label("Reorder Stops", systemImage: "list.number")
+                    }
+                }
+            }
+        }
     }
 
     // MARK: - Private
 
     private var allStops: [Any] {
         var stops: [Any] = []
-        stops.append(contentsOf: pickupRoute.pickups)
-        stops.append(contentsOf: pickupRoute.deliveries)
+        stops.append(contentsOf: pickupRoute.pickups.sorted { $0.sortOrder < $1.sortOrder })
+        stops.append(contentsOf: pickupRoute.deliveries.sorted { $0.sortOrder < $1.sortOrder })
         return stops
+    }
+
+    private var timeToNextStop: TimeInterval? {
+        let idx = pickupRoute.currentStopIndex
+        guard pickupRoute.status == .active, idx < routes.count else { return nil }
+        return routes[idx].expectedTravelTime
+    }
+
+    private var totalTimeRemaining: TimeInterval? {
+        let idx = pickupRoute.currentStopIndex
+        guard pickupRoute.status == .active, !routes.isEmpty, idx < routes.count else { return nil }
+        return routes[idx...].reduce(0) { $0 + $1.expectedTravelTime }
     }
 
     private var currentStop: Any? {
@@ -256,6 +284,8 @@ struct DriverControlPanel: View {
     let currentStop: Any?
     let totalStops: Int
     let isCalculatingRoute: Bool
+    let timeToNextStop: TimeInterval?
+    let totalTimeRemaining: TimeInterval?
     @Binding var capturedPhotoData: Data?
     let onStartRoute: () -> Void
     let onCompleteStop: (Data?) -> Void
@@ -267,6 +297,8 @@ struct DriverControlPanel: View {
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var isEditingNotes = false
     @State private var draftNotes = ""
+
+    private let notesTip = DriverNotesTip()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -283,7 +315,24 @@ struct DriverControlPanel: View {
                             Text("· Stop \(pickupRoute.currentStopIndex + 1) of \(totalStops)")
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
+                            if let eta = timeToNextStop {
+                                let mins = max(1, Int(eta / 60))
+                                Text("~\(mins) min")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Color.blue.opacity(0.15))
+                                    .foregroundColor(.blue)
+                                    .cornerRadius(6)
+                            }
                         }
+                    }
+                    if let remaining = totalTimeRemaining, pickupRoute.status == .active {
+                        let totalMins = max(1, Int(remaining / 60))
+                        Text("\(totalMins) min remaining")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                     }
                 }
                 Spacer()
@@ -370,6 +419,7 @@ struct DriverControlPanel: View {
                             .cornerRadius(8)
                         }
                         .buttonStyle(.plain)
+                        .popoverTip(notesTip)
                     }
 
                     // Action buttons row 1: navigate + call + email
@@ -544,6 +594,91 @@ struct DriverControlPanel: View {
         #elseif canImport(AppKit)
         NSWorkspace.shared.open(url)
         #endif
+    }
+}
+
+// MARK: - Stop Reorder Sheet
+
+private struct StopReorderSheet: View {
+    let route: PickupRoute
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if !route.pickups.isEmpty {
+                    Section("Pickup Stops") {
+                        ForEach(route.pickups.sorted { $0.sortOrder < $1.sortOrder }) { pickup in
+                            HStack(spacing: 12) {
+                                Image(systemName: "line.3.horizontal")
+                                    .foregroundColor(.secondary)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(pickup.foodProvider?.name ?? pickup.restaurant?.name ?? "Unknown")
+                                        .fontWeight(.medium)
+                                    Text(pickup.scheduledTime.formatted(date: .omitted, time: .shortened))
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "cart.fill")
+                                    .foregroundColor(.blue)
+                                    .font(.caption)
+                            }
+                        }
+                        .onMove { indices, newOffset in reorderPickups(from: indices, to: newOffset) }
+                    }
+                }
+
+                if !route.deliveries.isEmpty {
+                    Section("Delivery Stops") {
+                        ForEach(route.deliveries.sorted { $0.sortOrder < $1.sortOrder }) { delivery in
+                            HStack(spacing: 12) {
+                                Image(systemName: "line.3.horizontal")
+                                    .foregroundColor(.secondary)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(delivery.foodBank?.name ?? "Unknown")
+                                        .fontWeight(.medium)
+                                    Text(delivery.scheduledTime.formatted(date: .omitted, time: .shortened))
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "house.fill")
+                                    .foregroundColor(.green)
+                                    .font(.caption)
+                            }
+                        }
+                        .onMove { indices, newOffset in reorderDeliveries(from: indices, to: newOffset) }
+                    }
+                }
+            }
+            .environment(\.editMode, .constant(.active))
+            .navigationTitle("Reorder Stops")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                        .fontWeight(.semibold)
+                }
+            }
+        }
+    }
+
+    private func reorderPickups(from source: IndexSet, to destination: Int) {
+        var sorted = route.pickups.sorted { $0.sortOrder < $1.sortOrder }
+        sorted.move(fromOffsets: source, toOffset: destination)
+        for (index, pickup) in sorted.enumerated() { pickup.sortOrder = index }
+        try? modelContext.save()
+    }
+
+    private func reorderDeliveries(from source: IndexSet, to destination: Int) {
+        var sorted = route.deliveries.sorted { $0.sortOrder < $1.sortOrder }
+        sorted.move(fromOffsets: source, toOffset: destination)
+        for (index, delivery) in sorted.enumerated() { delivery.sortOrder = index }
+        try? modelContext.save()
     }
 }
 

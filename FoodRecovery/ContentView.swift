@@ -47,6 +47,7 @@ struct ContentView: View {
   @EnvironmentObject var authService: FirebaseAuthService
   @EnvironmentObject var firestoreService: FirestoreService
   @EnvironmentObject var realtimeRouteService: RealtimeRouteService
+  @EnvironmentObject var networkMonitor: NetworkMonitor
 
   @State private var selectedItem: NavigationItem = .dashboard
   @AppStorage("onboardingCompleted") private var onboardingCompleted = false
@@ -101,6 +102,11 @@ struct ContentView: View {
       }
     }
     .accentColor(.green)
+    .safeAreaInset(edge: .top, spacing: 0) {
+      if !networkMonitor.isConnected {
+        OfflineBanner()
+      }
+    }
     .onAppear {
       if !UserDefaults.standard.bool(forKey: demoDataLoadedKey) {
         DemoDataService.createDemoData(modelContext: modelContext)
@@ -158,6 +164,23 @@ struct ContentView: View {
     for op in ops {
       await firestoreService.syncOperation(op)
     }
+  }
+}
+
+// MARK: - Offline Banner
+
+private struct OfflineBanner: View {
+  var body: some View {
+    HStack(spacing: 8) {
+      Image(systemName: "wifi.slash")
+      Text("No Internet — changes saved locally")
+        .font(.subheadline)
+        .fontWeight(.medium)
+    }
+    .foregroundColor(.white)
+    .frame(maxWidth: .infinity)
+    .padding(.vertical, 8)
+    .background(Color.orange)
   }
 }
 

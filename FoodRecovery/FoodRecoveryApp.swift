@@ -8,6 +8,7 @@ import FirebaseCrashlytics
 import GoogleSignIn
 import SwiftData
 import SwiftUI
+import TipKit
 
 @main
 struct FoodRecoveryApp: App {
@@ -17,6 +18,7 @@ struct FoodRecoveryApp: App {
     @StateObject private var authService = FirebaseAuthService()
     @StateObject private var firestoreService = FirestoreService()
     @StateObject private var realtimeRouteService = RealtimeRouteService()
+    @StateObject private var networkMonitor = NetworkMonitor()
 
     // MARK: - SwiftData container (local offline cache)
 
@@ -63,6 +65,10 @@ struct FoodRecoveryApp: App {
 
     init() {
         configureFirebase()
+        try? Tips.configure([
+            .displayFrequency(.immediate),
+            .datastoreLocation(.applicationDefault)
+        ])
     }
 
     // MARK: - Scene
@@ -73,6 +79,7 @@ struct FoodRecoveryApp: App {
                 .environmentObject(authService)
                 .environmentObject(firestoreService)
                 .environmentObject(realtimeRouteService)
+                .environmentObject(networkMonitor)
                 .task {
                     await NotificationService.shared.requestPermission()
                     // Fetch Remote Config early so model-name overrides are active

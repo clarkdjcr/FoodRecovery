@@ -332,7 +332,8 @@ struct UrgentAlertsCard: View {
           )
         }
         if expiringDonations.count > 3 {
-          Text("+ \(expiringDonations.count - 3) more expiring soon")
+          let extra = expiringDonations.count - 3
+          Text("+ \(extra) more expiring soon")
             .font(.caption).foregroundColor(.orange)
         }
 
@@ -344,7 +345,8 @@ struct UrgentAlertsCard: View {
           )
         }
         if overduePickups.count > 2 {
-          Text("+ \(overduePickups.count - 2) more overdue pickups")
+          let extra = overduePickups.count - 2
+          Text("+ \(extra) more overdue pickups")
             .font(.caption).foregroundColor(.red)
         }
 

@@ -653,7 +653,9 @@ private struct StopReorderSheet: View {
                     }
                 }
             }
+            #if os(iOS)
             .environment(\.editMode, .constant(.active))
+            #endif
             .navigationTitle("Reorder Stops")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)

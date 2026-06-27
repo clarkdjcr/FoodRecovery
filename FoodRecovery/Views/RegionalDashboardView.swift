@@ -27,7 +27,7 @@ struct RegionalDashboardView: View {
           ScrollView {
             VStack(spacing: 20) {
               // Personalized Greeting with Daily Summary
-              GreetingCard(operation: operation, date: selectedDate)
+              GreetingCard(operation: operation, date: selectedDate, operatorName: authService.displayName)
 
               // Quick Actions
               QuickActionsCard(
@@ -133,11 +133,256 @@ struct RegionalDashboardView: View {
           ScheduleGenerationView(operation: operation, date: selectedDate, viewModel: viewModel)
         }
       }
+      .sheet(isPresented: $showingAddFoodBank) {
+        FoodBankOnboardingView()
+      }
+      .sheet(isPresented: $showingAddStore) {
+        FoodProviderRegistrationView()
+      }
+      .sheet(isPresented: $showingEmailProcessing) {
+        EmailProcessingView()
+      }
       .onAppear {
         viewModel.loadOperations(modelContext: modelContext)
       }
     }
   }
+
+// MARK: - Greeting Card
+
+struct GreetingCard: View {
+  let operation: RegionalOperation
+  let date: Date
+  let operatorName: String
+
+  private var greeting: String {
+    let hour = Calendar.current.component(.hour, from: date)
+    switch hour {
+    case 5..<12: return "Good morning"
+    case 12..<17: return "Good afternoon"
+    default: return "Good evening"
+    }
+  }
+
+  private var greetingIcon: String {
+    let hour = Calendar.current.component(.hour, from: date)
+    switch hour {
+    case 5..<12: return "sun.rise.fill"
+    case 12..<17: return "sun.max.fill"
+    default: return "moon.stars.fill"
+    }
+  }
+
+  private var todaysRoutes: [PickupRoute] {
+    let calendar = Calendar.current
+    return operation.pickupRoutes.filter { calendar.isDate($0.date, inSameDayAs: date) }
+  }
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      HStack(alignment: .top) {
+        VStack(alignment: .leading, spacing: 4) {
+          Text("\(greeting), \(operatorName.components(separatedBy: " ").first ?? operatorName)")
+            .font(.title2)
+            .fontWeight(.bold)
+            .foregroundColor(AppTheme.Colors.textPrimary)
+          Text(date.formatted(date: .complete, time: .omitted))
+            .font(.caption)
+            .foregroundColor(AppTheme.Colors.textSecondary)
+        }
+        Spacer()
+        Image(systemName: greetingIcon)
+          .font(.largeTitle)
+          .foregroundColor(.orange)
+      }
+
+      Divider()
+
+      HStack(spacing: 16) {
+        Label(
+          "\(todaysRoutes.count) route\(todaysRoutes.count == 1 ? "" : "s") today",
+          systemImage: "truck.box.fill"
+        )
+        .font(.subheadline)
+        .foregroundColor(todaysRoutes.isEmpty ? AppTheme.Colors.textSecondary : .blue)
+
+        Spacer()
+
+        let activeCount = todaysRoutes.filter { $0.status == .active }.count
+        if activeCount > 0 {
+          Label("\(activeCount) active", systemImage: "circle.fill")
+            .font(.subheadline)
+            .foregroundColor(.green)
+        }
+      }
+    }
+    .padding()
+    .background(Color.blue.opacity(0.05))
+    .cornerRadius(12)
+    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.blue.opacity(0.1)))
+  }
+}
+
+// MARK: - Quick Actions Card
+
+struct QuickActionsCard: View {
+  let operation: RegionalOperation
+  let onGenerateSchedule: () -> Void
+  let onAddFoodBank: () -> Void
+  let onAddStore: () -> Void
+  let onProcessEmails: () -> Void
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      HStack {
+        Image(systemName: "bolt.fill")
+          .foregroundColor(.yellow)
+        Text("Quick Actions")
+          .font(.headline)
+        Spacer()
+      }
+
+      LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+        QuickActionButton(title: "Generate Schedule", icon: "calendar.badge.plus", color: .blue, action: onGenerateSchedule)
+        QuickActionButton(title: "Process Emails", icon: "envelope.badge", color: .purple, action: onProcessEmails)
+        QuickActionButton(title: "Add Food Bank", icon: "house.badge.plus", color: .green, action: onAddFoodBank)
+        QuickActionButton(title: "Add Store", icon: "storefront", color: .orange, action: onAddStore)
+      }
+    }
+    .padding()
+    .background(Color.gray.opacity(0.1))
+    .cornerRadius(12)
+  }
+}
+
+private struct QuickActionButton: View {
+  let title: String
+  let icon: String
+  let color: Color
+  let action: () -> Void
+
+  var body: some View {
+    Button(action: action) {
+      VStack(spacing: 8) {
+        Image(systemName: icon)
+          .font(.title2)
+          .foregroundColor(color)
+        Text(title)
+          .font(.caption)
+          .fontWeight(.medium)
+          .multilineTextAlignment(.center)
+          .foregroundColor(AppTheme.Colors.textPrimary)
+      }
+      .frame(maxWidth: .infinity)
+      .padding(.vertical, 14)
+      .background(color.opacity(0.08))
+      .cornerRadius(10)
+    }
+    .buttonStyle(.plain)
+  }
+}
+
+// MARK: - Urgent Alerts Card
+
+struct UrgentAlertsCard: View {
+  let operation: RegionalOperation
+
+  private var expiringDonations: [Donation] {
+    let soon = Date().addingTimeInterval(48 * 3600)
+    return operation.foodProviders.flatMap { $0.donations }.filter {
+      guard let exp = $0.expirationDate else { return false }
+      return exp <= soon && exp >= Date() && $0.status != .delivered && $0.status != .cancelled
+    }
+  }
+
+  private var overduePickups: [Pickup] {
+    operation.pickupRoutes.flatMap { $0.pickups }.filter { $0.isOverdue }
+  }
+
+  private var nearCapacityBanks: [FoodBank] {
+    operation.foodBanks.filter { $0.utilizationPercentage >= 90 }
+  }
+
+  private var totalAlerts: Int { expiringDonations.count + overduePickups.count + nearCapacityBanks.count }
+
+  var body: some View {
+    if totalAlerts > 0 {
+      VStack(alignment: .leading, spacing: 10) {
+        HStack {
+          Image(systemName: "exclamationmark.triangle.fill")
+            .foregroundColor(.red)
+          Text("Urgent Alerts")
+            .font(.headline)
+          Spacer()
+          Text("\(totalAlerts)")
+            .font(.caption)
+            .fontWeight(.bold)
+            .foregroundColor(.white)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(Color.red)
+            .clipShape(Capsule())
+        }
+
+        ForEach(expiringDonations.prefix(3), id: \.id) { donation in
+          UrgentAlertRow(
+            icon: "clock.badge.exclamationmark.fill",
+            color: .orange,
+            message: "\(donation.foodType.rawValue.capitalized) donation expiring \(donation.expirationDate!.formatted(date: .abbreviated, time: .omitted))"
+          )
+        }
+        if expiringDonations.count > 3 {
+          Text("+ \(expiringDonations.count - 3) more expiring soon")
+            .font(.caption).foregroundColor(.orange)
+        }
+
+        ForEach(overduePickups.prefix(2), id: \.id) { pickup in
+          UrgentAlertRow(
+            icon: "truck.badge.exclamationmark.fill",
+            color: .red,
+            message: "Overdue pickup: \(pickup.foodProvider?.name ?? pickup.restaurant?.name ?? "Unknown")"
+          )
+        }
+        if overduePickups.count > 2 {
+          Text("+ \(overduePickups.count - 2) more overdue pickups")
+            .font(.caption).foregroundColor(.red)
+        }
+
+        ForEach(nearCapacityBanks.prefix(2), id: \.id) { bank in
+          UrgentAlertRow(
+            icon: "house.badge.exclamationmark.fill",
+            color: .purple,
+            message: "\(bank.name) at \(bank.utilizationPercentage, specifier: "%.0f")% capacity"
+          )
+        }
+      }
+      .padding()
+      .background(Color.red.opacity(0.05))
+      .cornerRadius(12)
+      .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.red.opacity(0.15)))
+    }
+  }
+}
+
+private struct UrgentAlertRow: View {
+  let icon: String
+  let color: Color
+  let message: String
+
+  var body: some View {
+    HStack(spacing: 8) {
+      Image(systemName: icon)
+        .foregroundColor(color)
+        .font(.subheadline)
+      Text(message)
+        .font(.subheadline)
+        .foregroundColor(AppTheme.Colors.textPrimary)
+        .lineLimit(2)
+    }
+  }
+}
+
+// MARK: - Operation Overview Card
 
 struct OperationOverviewCard: View {
   let operation: RegionalOperation

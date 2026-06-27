@@ -351,10 +351,11 @@ struct UrgentAlertsCard: View {
         }
 
         ForEach(nearCapacityBanks.prefix(2), id: \.id) { bank in
+          let pct = String(format: "%.0f", bank.utilizationPercentage)
           UrgentAlertRow(
             icon: "house.badge.exclamationmark.fill",
             color: .purple,
-            message: "\(bank.name) at \(bank.utilizationPercentage, specifier: "%.0f")% capacity"
+            message: "\(bank.name) at \(pct)% capacity"
           )
         }
       }

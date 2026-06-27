@@ -61,7 +61,7 @@ final class RemoteConfigService: ObservableObject {
     var geminiModel: String    { rc[RemoteConfigKey.geminiModel.rawValue].stringValue }
     var aiEnabled: Bool        { rc[RemoteConfigKey.aiEnabled.rawValue].boolValue }
     var maxEmailsPerSession: Int {
-        Int(rc[RemoteConfigKey.maxEmailsPerSession.rawValue].numberValue)
+        rc[RemoteConfigKey.maxEmailsPerSession.rawValue].numberValue.intValue
     }
 }
 

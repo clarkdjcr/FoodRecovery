@@ -79,7 +79,8 @@ struct RouteTrackingView: View {
                 capturedPhotoData: $capturedPhotoData,
                 onStartRoute: { startRoute() },
                 onCompleteStop: { photoData in markCurrentStopComplete(with: photoData) },
-                onRecalculate: { await calculateOptimizedRoute() }
+                onRecalculate: { await calculateOptimizedRoute() },
+                onNotesChanged: { notes in saveNotes(notes) }
             )
         }
         .navigationTitle("Route: \(pickupRoute.date.formatted(date: .abbreviated, time: .omitted))")
@@ -176,6 +177,16 @@ struct RouteTrackingView: View {
 
         isCalculatingRoute = false
     }
+
+    @MainActor
+    private func saveNotes(_ notes: String) {
+        if let pickup = currentStop as? Pickup {
+            pickup.notes = notes
+        } else if let delivery = currentStop as? Delivery {
+            delivery.notes = notes
+        }
+        try? modelContext.save()
+    }
 }
 
 // MARK: - Route Annotations
@@ -244,10 +255,13 @@ struct DriverControlPanel: View {
     let onStartRoute: () -> Void
     let onCompleteStop: (Data?) -> Void
     let onRecalculate: () async -> Void
+    let onNotesChanged: (String) -> Void
 
     @State private var showingPhotoOptions = false
     @State private var showingCamera = false
     @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var isEditingNotes = false
+    @State private var draftNotes = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -307,6 +321,51 @@ struct DriverControlPanel: View {
                     Text(stopAddress(stop))
                         .font(.subheadline)
                         .foregroundColor(AppTheme.Colors.textSecondary)
+
+                    // Driver notes (gate codes, special instructions)
+                    if isEditingNotes {
+                        VStack(alignment: .leading, spacing: 8) {
+                            TextEditor(text: $draftNotes)
+                                .frame(height: 72)
+                                .padding(4)
+                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.3)))
+                            HStack {
+                                Button("Cancel") { isEditingNotes = false }
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Button("Save") {
+                                    onNotesChanged(draftNotes)
+                                    isEditingNotes = false
+                                }
+                                .fontWeight(.semibold)
+                            }
+                            .font(.subheadline)
+                        }
+                    } else {
+                        let notes = stopNotes(stop)
+                        Button {
+                            draftNotes = notes
+                            isEditingNotes = true
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "note.text")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                Text(notes.isEmpty ? "Add gate code or instructions…" : notes)
+                                    .font(.subheadline)
+                                    .foregroundColor(notes.isEmpty ? .secondary : .primary)
+                                    .multilineTextAlignment(.leading)
+                                Spacer()
+                                Image(systemName: "pencil")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(8)
+                            .background(Color.secondary.opacity(0.08))
+                            .cornerRadius(8)
+                        }
+                        .buttonStyle(.plain)
+                    }
 
                     // Action buttons row 1: navigate + call + email
                     HStack(spacing: 8) {
@@ -390,6 +449,10 @@ struct DriverControlPanel: View {
         .background(.background)
         .cornerRadius(16)
         .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: -5)
+        .onChange(of: pickupRoute.currentStopIndex) { _, _ in
+            isEditingNotes = false
+            draftNotes = ""
+        }
     }
 
     // MARK: - Helpers
@@ -446,6 +509,12 @@ struct DriverControlPanel: View {
             return delivery.foodBank?.contactEmail
         }
         return nil
+    }
+
+    private func stopNotes(_ stop: Any) -> String {
+        if let pickup = stop as? Pickup { return pickup.notes }
+        if let delivery = stop as? Delivery { return delivery.notes }
+        return ""
     }
 
     private func openInMaps(_ stop: Any) {

@@ -10,9 +10,50 @@ import MapKit
 import SwiftData
 import SwiftUI
 
+private struct OperationTemplate: Identifiable {
+    let id: String
+    let displayName: String
+    let icon: String
+    let tagline: String
+    let radiusMiles: Double
+    let maxFoodBanks: Double
+    let operationHours: String
+}
+
+private let operationTemplates: [OperationTemplate] = [
+    OperationTemplate(
+        id: "urban",
+        displayName: "Urban",
+        icon: "building.2",
+        tagline: "Dense city, short distances",
+        radiusMiles: 10,
+        maxFoodBanks: 8,
+        operationHours: "6:00 AM - 10:00 PM"
+    ),
+    OperationTemplate(
+        id: "suburban",
+        displayName: "Suburban",
+        icon: "house",
+        tagline: "Mixed neighborhoods",
+        radiusMiles: 25,
+        maxFoodBanks: 5,
+        operationHours: "7:00 AM - 8:00 PM"
+    ),
+    OperationTemplate(
+        id: "rural",
+        displayName: "Rural",
+        icon: "tree",
+        tagline: "Spread-out communities",
+        radiusMiles: 50,
+        maxFoodBanks: 3,
+        operationHours: "8:00 AM - 6:00 PM"
+    ),
+]
+
 struct RegionalSetupView: View {
   @Environment(\.modelContext) private var modelContext
   @StateObject private var viewModel: RegionalOperationViewModel = RegionalOperationViewModel()
+  @State private var selectedTemplateID: String? = nil
   @State private var name = ""
   @State private var regionCenter = CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194)  // Default to San Francisco
   @State private var radiusMiles = 35.0
@@ -45,6 +86,41 @@ struct RegionalSetupView: View {
           )
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal)
+
+        // Quick Start Templates
+        ModernSectionCard(
+          "Quick Start Templates",
+          subtitle: "Pre-fill settings for your operation type",
+          icon: "wand.and.stars"
+        ) {
+          HStack(spacing: 10) {
+            ForEach(operationTemplates) { template in
+              Button {
+                applyTemplate(template)
+              } label: {
+                VStack(spacing: 6) {
+                  Image(systemName: template.icon)
+                    .font(.title2)
+                    .foregroundColor(selectedTemplateID == template.id ? .white : .blue)
+                  Text(template.displayName)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(selectedTemplateID == template.id ? .white : AppTheme.Colors.textPrimary)
+                  Text(template.tagline)
+                    .font(.caption2)
+                    .foregroundColor(selectedTemplateID == template.id ? .white.opacity(0.8) : AppTheme.Colors.textSecondary)
+                    .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(selectedTemplateID == template.id ? Color.blue : Color.blue.opacity(0.08))
+                .cornerRadius(10)
+              }
+              .buttonStyle(.plain)
+            }
+          }
+        }
         .padding(.horizontal)
 
         // Operation Details
@@ -213,7 +289,15 @@ struct RegionalSetupView: View {
         showingSuccess = true
     }
     
+    private func applyTemplate(_ template: OperationTemplate) {
+        selectedTemplateID = template.id
+        radiusMiles = template.radiusMiles
+        maxFoodBanks = template.maxFoodBanks
+        operationHours = template.operationHours
+    }
+
     private func resetForm() {
+        selectedTemplateID = nil
         name = ""
         regionCenter = CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194)
         radiusMiles = 35.0

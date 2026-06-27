@@ -5,6 +5,8 @@
 //  Created by Donald Clark on 9/11/25.
 //
 
+import CoreLocation
+import MapKit
 import SwiftData
 import SwiftUI
 
@@ -12,6 +14,7 @@ struct RouteListView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \PickupRoute.date, order: .reverse) private var routes: [PickupRoute]
     @State private var searchText = ""
+    @State private var previewingRoute: PickupRoute?
 
     var filteredRoutes: [PickupRoute] {
         guard !searchText.isEmpty else { return routes }
@@ -33,6 +36,13 @@ struct RouteListView: View {
                 ForEach(filteredRoutes) { route in
                     NavigationLink(destination: RouteTrackingView(pickupRoute: route)) {
                         RouteRowView(route: route)
+                    }
+                    .contextMenu {
+                        Button {
+                            previewingRoute = route
+                        } label: {
+                            Label("Preview on Map", systemImage: "map")
+                        }
                     }
                     .swipeActions(edge: .leading, allowsFullSwipe: true) {
                         if route.status == .planned {
@@ -61,6 +71,9 @@ struct RouteListView: View {
         .searchable(text: $searchText, prompt: "Search by date, status, or notes")
         .navigationTitle("Pickup Routes")
         .refreshable {}
+        .sheet(item: $previewingRoute) { route in
+            RoutePreviewSheet(route: route)
+        }
     }
 }
 
@@ -191,6 +204,173 @@ struct RouteStatusBadge: View {
         case .active: return .green
         case .completed: return .blue
         case .cancelled: return .red
+        }
+    }
+}
+
+// MARK: - Route Preview Sheet
+
+struct StopAnnotation: Identifiable {
+    let id: UUID
+    let coordinate: CLLocationCoordinate2D
+    let name: String
+    let index: Int
+    let isPickup: Bool
+}
+
+private struct StopRow: View {
+    let index: Int
+    let name: String
+    let address: String
+    let time: Date
+    let isPickup: Bool
+    let notes: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(isPickup ? Color.blue.opacity(0.15) : Color.green.opacity(0.15))
+                    .frame(width: 32, height: 32)
+                Text("\(index)")
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .foregroundColor(isPickup ? .blue : .green)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text(name)
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    Spacer()
+                    Text(time.formatted(date: .omitted, time: .shortened))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                if !address.isEmpty {
+                    Text(address)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                if !notes.isEmpty {
+                    Label(notes, systemImage: "note.text")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                }
+            }
+        }
+    }
+}
+
+struct RoutePreviewSheet: View {
+    let route: PickupRoute
+    @Environment(\.dismiss) private var dismiss
+
+    private var stopAnnotations: [StopAnnotation] {
+        var annotations: [StopAnnotation] = []
+        for (i, pickup) in route.pickups.enumerated() {
+            let lat = pickup.foodProvider?.latitude ?? pickup.restaurant?.latitude
+            let lon = pickup.foodProvider?.longitude ?? pickup.restaurant?.longitude
+            let name = pickup.foodProvider?.name ?? pickup.restaurant?.name ?? "Pickup \(i + 1)"
+            if let lat, let lon {
+                annotations.append(StopAnnotation(
+                    id: pickup.id,
+                    coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon),
+                    name: name, index: i + 1, isPickup: true
+                ))
+            }
+        }
+        for (i, delivery) in route.deliveries.enumerated() {
+            if let lat = delivery.foodBank?.latitude,
+               let lon = delivery.foodBank?.longitude {
+                let name = delivery.foodBank?.name ?? "Delivery \(i + 1)"
+                annotations.append(StopAnnotation(
+                    id: delivery.id,
+                    coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon),
+                    name: name, index: route.pickups.count + i + 1, isPickup: false
+                ))
+            }
+        }
+        return annotations
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if !stopAnnotations.isEmpty {
+                    Section {
+                        Map {
+                            ForEach(stopAnnotations) { stop in
+                                Annotation(stop.name, coordinate: stop.coordinate) {
+                                    ZStack {
+                                        Circle()
+                                            .fill(stop.isPickup ? Color.blue : Color.green)
+                                            .frame(width: 28, height: 28)
+                                        Text("\(stop.index)")
+                                            .font(.caption)
+                                            .fontWeight(.bold)
+                                            .foregroundColor(.white)
+                                    }
+                                }
+                            }
+                        }
+                        .frame(height: 220)
+                        .cornerRadius(10)
+                        .listRowInsets(EdgeInsets())
+                    }
+                }
+
+                Section("Route Summary") {
+                    LabeledContent("Total Stops", value: "\(route.pickups.count + route.deliveries.count)")
+                    if route.totalDistance > 0 {
+                        LabeledContent("Distance", value: String(format: "%.1f mi", route.totalDistance))
+                    }
+                    if route.estimatedDuration > 0 {
+                        LabeledContent("Est. Duration", value: "\(Int(route.estimatedDuration / 60)) min")
+                    }
+                    LabeledContent(
+                        "Window",
+                        value: "\(route.startTime.formatted(date: .omitted, time: .shortened)) – \(route.endTime.formatted(date: .omitted, time: .shortened))"
+                    )
+                }
+
+                if !route.pickups.isEmpty {
+                    Section("Pickups (\(route.pickups.count))") {
+                        ForEach(Array(route.pickups.enumerated()), id: \.element.id) { i, pickup in
+                            StopRow(
+                                index: i + 1,
+                                name: pickup.foodProvider?.name ?? pickup.restaurant?.name ?? "Unknown",
+                                address: pickup.foodProvider?.address ?? pickup.restaurant?.address ?? "",
+                                time: pickup.scheduledTime,
+                                isPickup: true,
+                                notes: pickup.notes
+                            )
+                        }
+                    }
+                }
+
+                if !route.deliveries.isEmpty {
+                    Section("Deliveries (\(route.deliveries.count))") {
+                        ForEach(Array(route.deliveries.enumerated()), id: \.element.id) { i, delivery in
+                            StopRow(
+                                index: route.pickups.count + i + 1,
+                                name: delivery.foodBank?.name ?? "Unknown",
+                                address: delivery.foodBank?.address ?? "",
+                                time: delivery.scheduledTime,
+                                isPickup: false,
+                                notes: delivery.notes
+                            )
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Route Preview")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
         }
     }
 }

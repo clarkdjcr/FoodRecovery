@@ -4,6 +4,7 @@
 
 import Foundation
 import Network
+import os
 
 // MARK: - Public errors
 
@@ -197,17 +198,17 @@ private actor SMTPClient {
         try await connect(conn)
 
         // Greeting
-        try await expectCode(220, in: try await readResponse())
+        try expectCode(220, in: try await readResponse())
 
         // EHLO
         try await write("EHLO localhost\r\n")
-        try await expectCode(250, in: try await readResponse())
+        try expectCode(250, in: try await readResponse())
 
         // AUTH LOGIN
         try await write("AUTH LOGIN\r\n")
-        try await expectCode(334, in: try await readResponse())
+        try expectCode(334, in: try await readResponse())
         try await write(Data(username.utf8).base64EncodedString() + "\r\n")
-        try await expectCode(334, in: try await readResponse())
+        try expectCode(334, in: try await readResponse())
         try await write(Data(password.utf8).base64EncodedString() + "\r\n")
         let authResp = try await readResponse()
         if authResp.code != 235 {
@@ -216,17 +217,17 @@ private actor SMTPClient {
 
         // Envelope
         try await write("MAIL FROM:<\(sender)>\r\n")
-        try await expectCode(250, in: try await readResponse())
+        try expectCode(250, in: try await readResponse())
         for recipient in recipients {
             try await write("RCPT TO:<\(recipient)>\r\n")
-            try await expectCode(250, in: try await readResponse())
+            try expectCode(250, in: try await readResponse())
         }
 
         // Message
         try await write("DATA\r\n")
-        try await expectCode(354, in: try await readResponse())
+        try expectCode(354, in: try await readResponse())
         try await write(buildRFC2822(from: sender, to: recipients, subject: subject, body: body))
-        try await expectCode(250, in: try await readResponse())
+        try expectCode(250, in: try await readResponse())
 
         // Quit — isComplete: true sends TCP FIN after the command for a graceful close
         try await write("QUIT\r\n", isComplete: true)
@@ -237,18 +238,20 @@ private actor SMTPClient {
 
     private func connect(_ conn: NWConnection) async throws {
         try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
-            var finished = false
+            let finished = OSAllocatedUnfairLock(initialState: false)
             conn.stateUpdateHandler = { state in
-                guard !finished else { return }
+                let alreadyFinished = finished.withLock { done -> Bool in
+                    if done { return true }
+                    done = true
+                    return false
+                }
+                guard !alreadyFinished else { return }
                 switch state {
                 case .ready:
-                    finished = true
                     cont.resume()
                 case .failed(let error):
-                    finished = true
                     cont.resume(throwing: EmailServiceError.connectionFailed(error))
                 case .cancelled:
-                    finished = true
                     cont.resume(throwing: EmailServiceError.sendFailed("Connection cancelled"))
                 default:
                     break

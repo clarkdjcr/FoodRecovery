@@ -11,10 +11,14 @@ import SwiftUI
 
 struct RegionalDashboardView: View {
   @Environment(\.modelContext) private var modelContext
+  @EnvironmentObject var authService: FirebaseAuthService
   @StateObject private var viewModel: RegionalOperationViewModel = RegionalOperationViewModel()
   @State private var selectedOperation: RegionalOperation?
   @State private var selectedDate = Date()
   @State private var showingScheduleGeneration = false
+  @State private var showingAddFoodBank = false
+  @State private var showingAddStore = false
+  @State private var showingEmailProcessing = false
 
 
   var body: some View {
@@ -22,6 +26,21 @@ struct RegionalDashboardView: View {
         if let operation = selectedOperation {
           ScrollView {
             VStack(spacing: 20) {
+              // Personalized Greeting with Daily Summary
+              GreetingCard(operation: operation, date: selectedDate)
+
+              // Quick Actions
+              QuickActionsCard(
+                operation: operation,
+                onGenerateSchedule: { showingScheduleGeneration = true },
+                onAddFoodBank: { showingAddFoodBank = true },
+                onAddStore: { showingAddStore = true },
+                onProcessEmails: { showingEmailProcessing = true }
+              )
+
+              // Urgent Alerts
+              UrgentAlertsCard(operation: operation)
+
               // Operation Overview
               OperationOverviewCard(operation: operation)
 
@@ -30,6 +49,9 @@ struct RegionalDashboardView: View {
 
               // Statistics
               StatisticsCard(operation: operation)
+
+              // Weekly Trend
+              WeeklyTrendCard(operation: operation)
 
               // Sustainability Impact
               SustainabilityImpactCard(operation: operation)
@@ -81,14 +103,27 @@ struct RegionalDashboardView: View {
 
         ToolbarItem(placement: .secondaryAction) {
           if let operation = selectedOperation {
-            ShareLink(
-              item: ImpactReportGenerator.generate(for: operation),
-              preview: SharePreview(
-                "\(operation.name) Impact Report",
-                image: Image(systemName: "leaf.fill")
-              )
-            ) {
-              Label("Export Report", systemImage: "square.and.arrow.up")
+            Menu {
+              ShareLink(
+                item: ImpactReportGenerator.generate(for: operation),
+                preview: SharePreview(
+                  "\(operation.name) Impact Report",
+                  image: Image(systemName: "leaf.fill")
+                )
+              ) {
+                Label("Text Report", systemImage: "doc.text")
+              }
+              ShareLink(
+                item: ImpactReportGenerator.generateCSV(for: operation),
+                preview: SharePreview(
+                  "\(operation.name) Donation Data",
+                  image: Image(systemName: "tablecells")
+                )
+              ) {
+                Label("CSV Data", systemImage: "tablecells")
+              }
+            } label: {
+              Label("Export", systemImage: "square.and.arrow.up")
             }
           }
         }
@@ -283,6 +318,64 @@ struct RouteCard: View {
       RoundedRectangle(cornerRadius: 8)
         .stroke(Color.gray.opacity(0.3), lineWidth: 1)
     )
+  }
+}
+
+struct WeeklyTrendCard: View {
+  let operation: RegionalOperation
+
+  struct DailyLbs: Identifiable {
+    let id = UUID()
+    let label: String
+    let lbs: Double
+  }
+
+  var chartData: [DailyLbs] {
+    let calendar = Calendar.current
+    let today = calendar.startOfDay(for: Date())
+    let allDonations = operation.foodProviders.flatMap { $0.donations }
+    return stride(from: 6, through: 0, by: -1).map { daysAgo in
+      let day = calendar.date(byAdding: .day, value: -daysAgo, to: today)!
+      let nextDay = calendar.date(byAdding: .day, value: 1, to: day)!
+      let lbs = allDonations
+        .filter { $0.createdAt >= day && $0.createdAt < nextDay }
+        .reduce(0.0) { $0 + $1.quantity }
+      let label = daysAgo == 0 ? "Today" : day.formatted(.dateTime.weekday(.abbreviated))
+      return DailyLbs(label: label, lbs: lbs)
+    }
+  }
+
+  var weekTotal: Double { chartData.reduce(0) { $0 + $1.lbs } }
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      HStack {
+        Image(systemName: "chart.bar.fill")
+          .foregroundColor(.blue)
+        Text("7-Day Trend")
+          .font(.headline)
+        Spacer()
+        Text("\(weekTotal, specifier: "%.0f") lbs this week")
+          .font(.caption)
+          .foregroundColor(AppTheme.Colors.textSecondary)
+      }
+
+      Chart(chartData) { day in
+        BarMark(
+          x: .value("Day", day.label),
+          y: .value("lbs", day.lbs)
+        )
+        .foregroundStyle(Color.blue.gradient)
+        .cornerRadius(4)
+      }
+      .frame(height: 120)
+      .chartYAxis {
+        AxisMarks(position: .leading, values: .automatic(desiredCount: 3))
+      }
+    }
+    .padding()
+    .background(Color.gray.opacity(0.1))
+    .cornerRadius(12)
   }
 }
 
@@ -558,6 +651,8 @@ struct ScheduleGenerationView: View {
   let viewModel: RegionalOperationViewModel
   @Environment(\.dismiss) private var dismiss
   @State private var errorMessage: String?
+  @State private var generatedRoutes: [PickupRoute] = []
+  @State private var showingPreview = false
 
   var body: some View {
     NavigationView {
@@ -571,7 +666,9 @@ struct ScheduleGenerationView: View {
           .foregroundColor(AppTheme.Colors.textSecondary)
           .multilineTextAlignment(.center)
 
-        if viewModel.isLoading {
+        if showingPreview {
+          GeneratedRoutesPreview(routes: generatedRoutes, onDone: { dismiss() })
+        } else if viewModel.isLoading {
           ProgressView("Generating schedule...")
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
@@ -582,7 +679,11 @@ struct ScheduleGenerationView: View {
               if let msg = viewModel.errorMessage {
                 errorMessage = msg
               } else {
-                dismiss()
+                let calendar = Calendar.current
+                generatedRoutes = operation.pickupRoutes.filter {
+                  calendar.isDate($0.date, inSameDayAs: date)
+                }
+                showingPreview = true
               }
             }
           }
@@ -609,6 +710,60 @@ struct ScheduleGenerationView: View {
       } message: {
         Text(errorMessage ?? "")
       }
+    }
+  }
+}
+
+private struct GeneratedRoutesPreview: View {
+  let routes: [PickupRoute]
+  let onDone: () -> Void
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 16) {
+      HStack {
+        Image(systemName: "checkmark.circle.fill")
+          .foregroundColor(.green)
+        Text("\(routes.count) route\(routes.count == 1 ? "" : "s") generated")
+          .font(.headline)
+      }
+
+      if routes.isEmpty {
+        Text("No pickups or deliveries could be scheduled. Add food providers and food banks first.")
+          .font(.subheadline)
+          .foregroundColor(.secondary)
+          .multilineTextAlignment(.center)
+          .frame(maxWidth: .infinity)
+          .padding()
+      } else {
+        ForEach(routes, id: \.id) { route in
+          VStack(alignment: .leading, spacing: 4) {
+            HStack {
+              Text("\(route.startTime.formatted(date: .omitted, time: .shortened)) – \(route.endTime.formatted(date: .omitted, time: .shortened))")
+                .font(.subheadline)
+                .fontWeight(.medium)
+              Spacer()
+              RouteStatusBadge(status: route.status)
+            }
+            Text("\(route.pickups.count) pickup\(route.pickups.count == 1 ? "" : "s") · \(route.deliveries.count) deliver\(route.deliveries.count == 1 ? "y" : "ies")")
+              .font(.caption)
+              .foregroundColor(.secondary)
+            if route.totalDistance > 0 {
+              Text(String(format: "%.1f mi · %.0f min", route.totalDistance, route.estimatedDuration / 60))
+                .font(.caption)
+                .foregroundColor(.secondary)
+            }
+          }
+          .padding(12)
+          .background(Color.green.opacity(0.05))
+          .cornerRadius(10)
+          .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.green.opacity(0.15)))
+        }
+      }
+
+      Button("Done", action: onDone)
+        .buttonStyle(.borderedProminent)
+        .controlSize(.large)
+        .frame(maxWidth: .infinity)
     }
   }
 }
@@ -675,6 +830,24 @@ enum ImpactReportGenerator {
     Committed to Zero Food Waste
     \(divider)
     """
+  }
+
+  static func generateCSV(for operation: RegionalOperation) -> String {
+    let header = "Date,Provider,Food Type,Quantity (lbs),CO2 Offset (kg),Status,Description"
+    let rows = operation.foodProviders.flatMap { provider in
+      provider.donations.map { d in
+        [
+          d.createdAt.formatted(date: .numeric, time: .omitted),
+          "\"\(provider.name)\"",
+          d.foodType.rawValue,
+          String(format: "%.1f", d.quantity),
+          String(format: "%.1f", d.carbonOffset),
+          d.status.rawValue,
+          "\"\(d.foodDescription.replacingOccurrences(of: "\"", with: "\"\""))\""
+        ].joined(separator: ",")
+      }
+    }.sorted()
+    return ([header] + rows).joined(separator: "\n")
   }
 }
 

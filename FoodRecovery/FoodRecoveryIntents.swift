@@ -15,7 +15,7 @@ struct FoodRecoveryShortcuts: AppShortcutsProvider {
             phrases: [
                 "Open \(.applicationName) Dashboard",
                 "Show \(.applicationName) overview",
-                "Open food recovery dashboard"
+                "Open \(.applicationName) home"
             ],
             shortTitle: "Open Dashboard",
             systemImageName: "chart.bar.fill"
@@ -24,7 +24,7 @@ struct FoodRecoveryShortcuts: AppShortcutsProvider {
             intent: ShowRoutesIntent(),
             phrases: [
                 "Open \(.applicationName) Routes",
-                "Show my food recovery routes",
+                "Show \(.applicationName) routes",
                 "Open routes in \(.applicationName)"
             ],
             shortTitle: "Open Routes",
@@ -34,7 +34,7 @@ struct FoodRecoveryShortcuts: AppShortcutsProvider {
             intent: ShowAnalyticsIntent(),
             phrases: [
                 "Open \(.applicationName) Analytics",
-                "Show food recovery analytics",
+                "Show \(.applicationName) analytics",
                 "Open analytics in \(.applicationName)"
             ],
             shortTitle: "Open Analytics",

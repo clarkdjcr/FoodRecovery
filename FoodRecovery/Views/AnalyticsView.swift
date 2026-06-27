@@ -154,7 +154,7 @@ struct ActivityHeatMapCard: View {
 struct CapacityForecastCard: View {
     let operation: RegionalOperation
 
-    private struct BankForecast: Identifiable {
+    fileprivate struct BankForecast: Identifiable {
         let id: UUID
         let name: String
         let currentPct: Double

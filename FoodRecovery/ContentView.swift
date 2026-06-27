@@ -24,6 +24,9 @@ enum NavigationItem: String, CaseIterable, Identifiable {
   case aiProcessing = "AI Processing"
   case restaurants = "Restaurants"
   case routes = "Routes"
+  case analytics = "Analytics"
+  case achievements = "Achievements"
+  case feed = "Operations Feed"
   case settings = "Settings"
 
   var id: String { rawValue }
@@ -37,6 +40,9 @@ enum NavigationItem: String, CaseIterable, Identifiable {
     case .aiProcessing: return "envelope.fill"
     case .restaurants: return "fork.knife.circle.fill"
     case .routes: return "map.fill"
+    case .analytics: return "chart.xyaxis.line"
+    case .achievements: return "trophy.fill"
+    case .feed: return "text.bubble.fill"
     case .settings: return "gearshape.fill"
     }
   }
@@ -97,6 +103,12 @@ struct ContentView: View {
         RestaurantOnboardingView()
       case .routes:
         RouteListView()
+      case .analytics:
+        AnalyticsView()
+      case .achievements:
+        AchievementsView()
+      case .feed:
+        OperationsFeedView()
       case .settings:
         SettingsView()
       }

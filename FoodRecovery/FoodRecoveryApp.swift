@@ -33,6 +33,7 @@ struct FoodRecoveryApp: App {
             Pickup.self,
             Delivery.self,
             PickupRoute.self,
+            OperationNote.self,
         ])
         let persistentConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 

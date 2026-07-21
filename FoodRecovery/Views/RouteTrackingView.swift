@@ -23,10 +23,14 @@ struct RouteTrackingView: View {
     @State private var capturedPhotoData: Data?
     @State private var showingCompletionSurvey = false
     @State private var showingReorder = false
+    @State private var isDriverMode = false
 
     var body: some View {
-        VStack {
-            MapReader { proxy in
+        if isDriverMode {
+            DriverModeView(pickupRoute: pickupRoute)
+        } else {
+            VStack {
+                MapReader { proxy in
                 Map(position: $cameraPosition, selection: $selectedAnnotation) {
                     if let currentLocation = locationManager.currentLocation {
                         Annotation("Current Location", coordinate: currentLocation.coordinate) {
@@ -100,13 +104,22 @@ struct RouteTrackingView: View {
             StopReorderSheet(route: pickupRoute)
         }
         .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    isDriverMode.toggle()
+                } label: {
+                    Label(isDriverMode ? "Standard View" : "Driver Mode", systemImage: isDriverMode ? "list.bullet" : "car.fill")
+                }
+            }
+            
             if pickupRoute.status == .planned {
-                ToolbarItem(placement: .primaryAction) {
+                ToolbarItem(placement: .secondaryAction) {
                     Button { showingReorder = true } label: {
                         Label("Reorder Stops", systemImage: "list.number")
                     }
                 }
             }
+        }
         }
     }
 

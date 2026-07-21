@@ -6,6 +6,7 @@
 //
 
 import Charts
+import MapKit
 import SwiftData
 import SwiftUI
 import TipKit
@@ -30,6 +31,9 @@ struct RegionalDashboardView: View {
             VStack(spacing: 20) {
               // Personalized Greeting with Daily Summary
               GreetingCard(operation: operation, date: selectedDate, operatorName: authService.displayName)
+
+              // Setup Completion Indicator
+              SetupCompletionIndicator(operation: operation)
 
               // This Week Summary
               WeeklySummaryCard(operation: operation)
@@ -1072,6 +1076,7 @@ struct ScheduleGenerationView: View {
 private struct GeneratedRoutesPreview: View {
   let routes: [PickupRoute]
   let onDone: () -> Void
+  @State private var selectedRoute: PickupRoute?
 
   var body: some View {
     VStack(alignment: .leading, spacing: 16) {
@@ -1090,35 +1095,175 @@ private struct GeneratedRoutesPreview: View {
           .frame(maxWidth: .infinity)
           .padding()
       } else {
-        ForEach(routes, id: \.id) { route in
-          VStack(alignment: .leading, spacing: 4) {
-            HStack {
-              Text("\(route.startTime.formatted(date: .omitted, time: .shortened)) – \(route.endTime.formatted(date: .omitted, time: .shortened))")
-                .font(.subheadline)
-                .fontWeight(.medium)
-              Spacer()
-              RouteStatusBadge(status: route.status)
-            }
-            Text("\(route.pickups.count) pickup\(route.pickups.count == 1 ? "" : "s") · \(route.deliveries.count) deliver\(route.deliveries.count == 1 ? "y" : "ies")")
-              .font(.caption)
-              .foregroundColor(.secondary)
-            if route.totalDistance > 0 {
-              Text(String(format: "%.1f mi · %.0f min", route.totalDistance, route.estimatedDuration / 60))
-                .font(.caption)
-                .foregroundColor(.secondary)
+        ScrollView {
+          VStack(spacing: 12) {
+            ForEach(routes, id: \.id) { route in
+              RoutePreviewCard(route: route, onTap: { selectedRoute = route })
             }
           }
-          .padding(12)
-          .background(Color.green.opacity(0.05))
-          .cornerRadius(10)
-          .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.green.opacity(0.15)))
         }
+        .frame(maxHeight: 400)
       }
 
       Button("Done", action: onDone)
         .buttonStyle(.borderedProminent)
         .controlSize(.large)
         .frame(maxWidth: .infinity)
+    }
+    .sheet(item: $selectedRoute) { route in
+      RouteDetailPreviewSheet(route: route)
+    }
+  }
+}
+
+private struct RoutePreviewCard: View {
+  let route: PickupRoute
+  let onTap: () -> Void
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      HStack {
+        Text("\(route.startTime.formatted(date: .omitted, time: .shortened)) – \(route.endTime.formatted(date: .omitted, time: .shortened))")
+          .font(.subheadline)
+          .fontWeight(.medium)
+        Spacer()
+        RouteStatusBadge(status: route.status)
+      }
+      
+      HStack {
+        Label("\(route.pickups.count) pickup\(route.pickups.count == 1 ? "" : "s")", systemImage: "cart.fill")
+          .font(.caption)
+          .foregroundColor(.secondary)
+        Label("\(route.deliveries.count) deliver\(route.deliveries.count == 1 ? "y" : "ies")", systemImage: "house.fill")
+          .font(.caption)
+          .foregroundColor(.secondary)
+        Spacer()
+        if route.totalDistance > 0 {
+          Text(String(format: "%.1f mi", route.totalDistance))
+            .font(.caption)
+            .foregroundColor(.secondary)
+        }
+      }
+      
+      Button("View Details") {
+        onTap()
+      }
+      .font(.caption)
+      .foregroundColor(.blue)
+    }
+    .padding(12)
+    .background(Color.green.opacity(0.05))
+    .cornerRadius(10)
+    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.green.opacity(0.15)))
+  }
+}
+
+private struct RouteDetailPreviewSheet: View {
+  let route: PickupRoute
+  @Environment(\.dismiss) private var dismiss
+  @State private var cameraPosition: MapCameraPosition = .automatic
+
+  var body: some View {
+    NavigationView {
+      VStack {
+        Map(position: $cameraPosition) {
+          ForEach(route.pickups, id: \.id) { pickup in
+            if let store = pickup.foodProvider,
+               let lat = store.latitude, let lon = store.longitude {
+              Annotation(store.name, coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon)) {
+                Circle()
+                  .fill(.blue)
+                  .frame(width: 12, height: 12)
+                  .overlay(Circle().stroke(.white, lineWidth: 2))
+              }
+            }
+          }
+          
+          ForEach(route.deliveries, id: \.id) { delivery in
+            if let foodBank = delivery.foodBank,
+               let lat = foodBank.latitude, let lon = foodBank.longitude {
+              Annotation(foodBank.name, coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon)) {
+                Circle()
+                  .fill(.green)
+                  .frame(width: 12, height: 12)
+                  .overlay(Circle().stroke(.white, lineWidth: 2))
+              }
+            }
+          }
+        }
+        .frame(height: 300)
+        .mapStyle(.standard(elevation: .flat))
+        
+        VStack(alignment: .leading, spacing: 16) {
+          Text("Route Details")
+            .font(.headline)
+          
+          VStack(alignment: .leading, spacing: 8) {
+            HStack {
+              Image(systemName: "clock.fill")
+                .foregroundColor(.blue)
+              Text("Duration: \(Int(route.estimatedDuration / 60)) minutes")
+                .font(.subheadline)
+            }
+            HStack {
+              Image(systemName: "map.fill")
+                .foregroundColor(.blue)
+              Text("Distance: \(String(format: "%.1f", route.totalDistance)) miles")
+                .font(.subheadline)
+            }
+            HStack {
+              Image(systemName: "scalemass.fill")
+                .foregroundColor(.blue)
+              Text("Total: \(String(format: "%.0f", route.totalPickupQuantity)) lbs")
+                .font(.subheadline)
+            }
+          }
+          
+          Divider()
+          
+          VStack(alignment: .leading, spacing: 8) {
+            Text("Pickups")
+              .font(.subheadline)
+              .fontWeight(.semibold)
+            ForEach(route.pickups, id: \.id) { pickup in
+              HStack {
+                Text("• \(pickup.foodProvider?.name ?? pickup.restaurant?.name ?? "Unknown")")
+                  .font(.caption)
+                Spacer()
+                Text(pickup.scheduledTime.formatted(date: .omitted, time: .shortened))
+                  .font(.caption)
+                  .foregroundColor(.secondary)
+              }
+            }
+          }
+          
+          VStack(alignment: .leading, spacing: 8) {
+            Text("Deliveries")
+              .font(.subheadline)
+              .fontWeight(.semibold)
+            ForEach(route.deliveries, id: \.id) { delivery in
+              HStack {
+                Text("• \(delivery.foodBank?.name ?? "Unknown")")
+                  .font(.caption)
+                Spacer()
+                Text(delivery.scheduledTime.formatted(date: .omitted, time: .shortened))
+                  .font(.caption)
+                  .foregroundColor(.secondary)
+              }
+            }
+          }
+        }
+        .padding()
+        .background(Color.gray.opacity(0.1))
+        .cornerRadius(12)
+      }
+      .padding()
+      .navigationTitle("Route Preview")
+      .toolbar {
+        ToolbarItem(placement: .primaryAction) {
+          Button("Done") { dismiss() }
+        }
+      }
     }
   }
 }

@@ -70,6 +70,20 @@ class NotificationService: ObservableObject {
         schedule(content: content, at: triggerDate, id: "overdue_\(routeId.uuidString)")
     }
 
+    // Fires immediately when an achievement is unlocked
+    func scheduleAchievementNotification(title: String, body: String) {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+
+        let request = UNNotificationRequest(
+            identifier: "achievement_\(UUID().uuidString)", content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error { print("Notification scheduling error: \(error)") }
+        }
+    }
+
     func cancelNotification(id: String) {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [id])
     }

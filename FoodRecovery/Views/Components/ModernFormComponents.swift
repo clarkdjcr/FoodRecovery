@@ -414,34 +414,3 @@ struct CircularProgressView: View {
         .frame(width: size, height: size)
     }
 }
-
-// MARK: - Progress Indicator
-struct OnboardingProgressView: View {
-    let currentStep: Int
-    let totalSteps: Int
-    let stepTitles: [String]
-    
-    var body: some View {
-        VStack(spacing: 12) {
-            HStack {
-                ForEach(0..<totalSteps, id: \.self) { step in
-                    Circle()
-                        .fill(step <= currentStep ? .blue : Color.gray.opacity(0.3))
-                        .frame(width: 12, height: 12)
-                        .animation(.easeInOut, value: currentStep)
-                    
-                    if step < totalSteps - 1 {
-                        Rectangle()
-                            .fill(step < currentStep ? .blue : Color.gray.opacity(0.3))
-                            .frame(height: 2)
-                            .animation(.easeInOut, value: currentStep)
-                    }
-                }
-            }
-            
-            Text("Step \(currentStep + 1) of \(totalSteps): \(stepTitles[currentStep])")
-                .font(.caption)
-                .foregroundColor(AppTheme.Colors.textSecondary)
-        }
-    }
-}
